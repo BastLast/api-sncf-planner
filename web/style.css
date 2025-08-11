@@ -28,6 +28,18 @@ select, input[type="date"], input[list] {
     padding: 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
+    position: relative;
+}
+
+input[list]:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+input[list]::placeholder {
+    font-style: italic;
+    opacity: 0.7;
 }
 button {
         background: #2563eb;

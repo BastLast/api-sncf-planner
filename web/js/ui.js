@@ -1,12 +1,12 @@
 // Fonctions de rendu UI (global window.UI)
 (function(){
   const { formatDateTime, calculateDuration, calculateSegmentDuration, getNextDates, formatDate } = window.Utils;
+  // NOTE: Ce module construit des éléments (DOM nodes) sauf renderItinerarySegments qui retourne une string HTML (à harmoniser plus tard si besoin).
 
-  // Liste des emojis par gare
-   function renderResetButton(onClick) {
+  function renderResetButton(onClick) {
     const btn = document.createElement('button');
     btn.id = 'resetBtn';
-    btn.textContent = 'Réinitialiser l\'itinéraire';
+    btn.textContent = 'Réinitialiser l’itinéraire';
     btn.className = 'btn-danger';
     btn.onclick = onClick;
     return btn;
@@ -37,15 +37,8 @@
     return container;
   }
 
-  window.UI = { 
-    renderTrainItem, 
-    renderItinerarySegments, 
-    showLoading, 
-    showError, 
-    showResultsHeader, 
-    renderResetButton,
-    renderDateChangeButtons
-  };tionsWithEmoji = {
+  // Liste des emojis par gare
+  const stationsWithEmoji = {
     'PARIS (intramuros)': '🗼',
     'LYON (intramuros)': '🦁',
     'BORDEAUX ST JEAN': '🍷',
@@ -244,14 +237,14 @@
   container.innerHTML = `<h2>Trains au départ de ${stationWithEmoji(origin)} le ${dateText}</h2>`;
   }
 
-  function renderResetButton(onClick) {
-    const btn = document.createElement('button');
-    btn.id = 'resetBtn';
-    btn.textContent = 'Réinitialiser l’itinéraire';
-    btn.className = 'btn-danger';
-    btn.onclick = onClick;
-    return btn;
-  }
-
-  window.UI = { renderTrainItem, renderItinerarySegments, showLoading, showError, showResultsHeader, renderResetButton };
+  // Export unique
+  window.UI = { 
+    renderTrainItem, 
+    renderItinerarySegments, 
+    showLoading, 
+    showError, 
+    showResultsHeader, 
+    renderResetButton,
+    renderDateChangeButtons
+  };
 })();

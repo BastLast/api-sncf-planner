@@ -27,6 +27,11 @@ h1 {
     margin-bottom: 30px;
 }
 
+h2 {
+    color: #1f2937;
+    font-weight: 700;
+}
+
 /* Formulaire amélioré */
 form {
     display: flex;
@@ -48,7 +53,7 @@ label {
 
 .form-help {
     font-size: 12px;
-    color: #4b5563;
+    color: #374151;
     font-weight: 500;
 }
 
@@ -79,7 +84,8 @@ input[list]:disabled {
 
 input[list]::placeholder {
     font-style: italic;
-    opacity: 0.7;
+    opacity: 0.6;
+    color: #6b7280;
 }
 
 /* Boutons améliorés */
@@ -170,10 +176,23 @@ input[list]::placeholder {
 
 .itineraire-segment {
     border-left: 4px solid #3b82f6;
-    background: #f8fbff;
+    background: #ffffff;
     padding: 16px 20px;
     border-radius: 8px;
     margin: 16px 0;
+    border: 1px solid #e5e7eb;
+    color: #111827;
+}
+
+.itineraire-segment p {
+    margin: 8px 0;
+    color: #111827;
+    font-weight: 500;
+}
+
+.itineraire-segment strong {
+    color: #1f2937;
+    font-weight: 700;
 }
 
 /* Classes pour design moderne */
@@ -186,12 +205,18 @@ input[list]::placeholder {
     transition: box-shadow 0.2s;
 }
 
+.card strong {
+    color: #111827;
+    font-weight: 700;
+}
+
 .card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .card.subtle { 
-    background: #fafcff; 
+    background: #ffffff; 
+    border: 2px solid #e2e8f0;
 }
 
 .card .card-header {
@@ -244,9 +269,9 @@ input[list]::placeholder {
     align-items: center; 
     gap: 12px; 
     padding: 20px; 
-    color: #374151;
+    color: #1f2937;
     justify-content: center;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .spinner {
@@ -317,6 +342,18 @@ input:focus {
         color: #f1f5f9;
     }
     
+    h1 {
+        color: #f1f5f9;
+    }
+    
+    h2 {
+        color: #f8fafc;
+    }
+    
+    label {
+        color: #f1f5f9;
+    }
+    
     .train {
         background: #334155;
         color: #f1f5f9;
@@ -332,6 +369,15 @@ input:focus {
         background: #334155;
         border-color: #475569;
         color: #f1f5f9;
+    }
+    
+    .card.subtle {
+        background: #374151;
+        border-color: #60a5fa;
+    }
+    
+    .card strong {
+        color: #f8fafc;
     }
     
     .badge {
@@ -355,7 +401,36 @@ input:focus {
         color: #f1f5f9;
     }
     
-    .form-help {
+    input::placeholder {
         color: #94a3b8;
+        opacity: 0.8;
+    }
+    
+    input:focus, select:focus {
+        background: #374151;
+        border-color: #60a5fa;
+    }
+    
+    .form-help {
+        color: #cbd5e1;
+    }
+    
+    .loader {
+        color: #cbd5e1;
+    }
+    
+    .itineraire-segment {
+        background: #334155;
+        border-left-color: #60a5fa;
+        color: #f1f5f9;
+        border-color: #475569;
+    }
+    
+    .itineraire-segment p {
+        color: #f1f5f9;
+    }
+    
+    .itineraire-segment strong {
+        color: #f8fafc;
     }
 }

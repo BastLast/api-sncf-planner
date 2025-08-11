@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche de trains SNCF</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Recherche de trains SNCF</h1>
+        <form id="searchForm">
+            <label for="city">Ville :</label>
+            <select id="city" name="city">
+                <option value="Paris">Paris</option>
+                <option value="Lyon">Lyon</option>
+                <option value="Marseille">Marseille</option>
+                <option value="Bordeaux">Bordeaux</option>
+                <option value="Lille">Lille</option>
+            </select>
+            <label for="date">Date :</label>
+            <input type="date" id="date" name="date" required>
+            <button type="submit">Rechercher</button>
+        </form>
+        <div id="results"></div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,9 +1,51 @@
 // Fonctions de rendu UI (global window.UI)
 (function(){
-  const { formatDateTime, calculateDuration, calculateSegmentDuration } = window.Utils;
+  const { formatDateTime, calculateDuration, calculateSegmentDuration, getNextDates, formatDate } = window.Utils;
 
   // Liste des emojis par gare
-  const stationsWithEmoji = {
+   function renderResetButton(onClick) {
+    const btn = document.createElement('button');
+    btn.id = 'resetBtn';
+    btn.textContent = 'Réinitialiser l\'itinéraire';
+    btn.className = 'btn-danger';
+    btn.onclick = onClick;
+    return btn;
+  }
+
+  function renderDateChangeButtons(currentDate, station, onDateChange) {
+    const container = document.createElement('div');
+    container.className = 'date-change-section';
+    
+    const title = document.createElement('h4');
+    title.textContent = 'Aucun train disponible ? Essayez un autre jour :';
+    title.className = 'date-change-title';
+    container.appendChild(title);
+    
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'date-change-buttons';
+    
+    const nextDates = getNextDates(currentDate, 3);
+    nextDates.forEach(({ date, label }) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-date-change';
+      btn.textContent = label;
+      btn.onclick = () => onDateChange(date);
+      buttonsContainer.appendChild(btn);
+    });
+    
+    container.appendChild(buttonsContainer);
+    return container;
+  }
+
+  window.UI = { 
+    renderTrainItem, 
+    renderItinerarySegments, 
+    showLoading, 
+    showError, 
+    showResultsHeader, 
+    renderResetButton,
+    renderDateChangeButtons
+  };tionsWithEmoji = {
     'PARIS (intramuros)': '🗼',
     'LYON (intramuros)': '🦁',
     'BORDEAUX ST JEAN': '🍷',

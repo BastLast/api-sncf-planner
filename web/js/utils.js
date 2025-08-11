@@ -100,6 +100,36 @@ window.Utils = (function () {
     }
   }
 
+  // Ajouter des jours à une date (format YYYY-MM-DD)
+  function addDaysToDate(dateStr, days) {
+    try {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      date.setDate(date.getDate() + days);
+      
+      const newYear = date.getFullYear();
+      const newMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+      const newDay = date.getDate().toString().padStart(2, '0');
+      
+      return `${newYear}-${newMonth}-${newDay}`;
+    } catch {
+      return dateStr;
+    }
+  }
+
+  // Obtenir les dates suivantes (pour les boutons de changement de jour)
+  function getNextDates(baseDate, count = 3) {
+    const dates = [];
+    for (let i = 1; i <= count; i++) {
+      const nextDate = addDaysToDate(baseDate, i);
+      dates.push({
+        date: nextDate,
+        label: formatDate(nextDate)
+      });
+    }
+    return dates;
+  }
+
   return { 
     normalizeStationForApi, 
     toRefineDate, 
@@ -108,6 +138,8 @@ window.Utils = (function () {
     formatDate,
     isValidSearchDate,
     calculateDuration,
-    calculateSegmentDuration
+    calculateSegmentDuration,
+    addDaysToDate,
+    getNextDates
   };
 })();

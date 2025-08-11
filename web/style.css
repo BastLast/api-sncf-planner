@@ -467,6 +467,23 @@ input:focus {
     .btn-secondary:hover {
         background: #4b5563 !important;
     }
+    
+    .date-change-section {
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+    }
+    
+    .date-change-title {
+        color: #f1f5f9 !important;
+    }
+    
+    .btn-date-change {
+        background: #1d4ed8 !important;
+    }
+    
+    .btn-date-change:hover {
+        background: #1e40af !important;
+    }
 }
 
 /* Nouveaux styles pour les durées et actions */
@@ -540,4 +557,63 @@ input:focus {
 
 .btn-secondary:active {
     transform: translateY(0);
+}
+
+/* Styles pour les boutons de changement de date */
+.date-change-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8fafc;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.date-change-title {
+    color: #475569;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.date-change-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-date-change {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 120px;
+}
+
+.btn-date-change:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-date-change:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .date-change-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-date-change {
+        width: 100%;
+        max-width: 200px;
+    }
 }

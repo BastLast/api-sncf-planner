@@ -2,8 +2,8 @@
 
 (function(){
   const { fetchTrains, fetchStations } = window.Api;
-  const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi } = window.Utils;
-  const { renderTrainItem, renderItinerarySegments, showLoading, showError, showResultsHeader, renderResetButton } = window.UI;
+  const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi, addDaysToDate } = window.Utils;
+  const { renderTrainItem, renderItinerarySegments, showLoading, showError, showResultsHeader, renderResetButton, renderDateChangeButtons } = window.UI;
 
   const form = document.getElementById('searchForm');
   const resultsDiv = document.getElementById('results');
@@ -217,6 +217,95 @@
     }
   });
 
+  // Nouvelle fonction pour afficher les trains disponibles avec gestion des changements de date
+  async function showAvailableTrains(station, searchDate, afterDateTime, parcours, headerHtml) {
+    resultsDiv.innerHTML = headerHtml;
+    
+    // Re-ajouter l'event listener pour le bouton de suppression après rechargement
+    const removeBtnAfterLoad = document.getElementById('removeLastStepBtn');
+    if (removeBtnAfterLoad && parcours.length > 1) {
+      removeBtnAfterLoad.addEventListener('click', () => {
+        const parcoursReduit = parcours.slice(0, -1);
+        const lastSegment = parcoursReduit[parcoursReduit.length - 1];
+        
+        const fakeTrain = {
+          train_no: lastSegment.train.numero,
+          destination: lastSegment.arrivee,
+          heure_depart: lastSegment.train.heure,
+          heure_arrivee: lastSegment.arriveeDateTime.toTimeString().slice(0, 5)
+        };
+        
+        showItinerary(lastSegment.depart, searchDate, fakeTrain, parcoursReduit.slice(0, -1));
+      });
+    }
+    
+    showLoading(resultsDiv, 'Chargement des correspondances…');
+
+    try {
+      const allNext = await fetchTrains({ date: searchDate, origin: station });
+      const nextTrains = allNext.filter(t => {
+        const tDateTime = parseDateTime(searchDate, t.heure_depart || '00:00');
+        return tDateTime > afterDateTime;
+      });
+
+      resultsDiv.innerHTML = headerHtml;
+      
+      // Re-ajouter l'event listener après le rechargement final
+      const removeBtnFinal = document.getElementById('removeLastStepBtn');
+      if (removeBtnFinal && parcours.length > 1) {
+        removeBtnFinal.addEventListener('click', () => {
+          const parcoursReduit = parcours.slice(0, -1);
+          const lastSegment = parcoursReduit[parcoursReduit.length - 1];
+          
+          const fakeTrain = {
+            train_no: lastSegment.train.numero,
+            destination: lastSegment.arrivee,
+            heure_depart: lastSegment.train.heure,
+            heure_arrivee: lastSegment.arriveeDateTime.toTimeString().slice(0, 5)
+          };
+          
+          showItinerary(lastSegment.depart, searchDate, fakeTrain, parcoursReduit.slice(0, -1));
+        });
+      }
+      
+      if (!nextTrains.length) {
+        const p = document.createElement('p');
+        p.textContent = `Aucun train disponible depuis ${station} après ${formatDateTime(afterDateTime)} le ${formatDate(searchDate)}.`;
+        resultsDiv.appendChild(p);
+        
+        // Ajouter les boutons pour changer de date
+        const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
+          const newAfterDateTime = parseDateTime(newDate, '00:00');
+          showAvailableTrains(station, newDate, newAfterDateTime, parcours, 
+            renderItinerarySegments(parcours, parcours.length > 1 ? () => {} : null) + 
+            `<h3>Trains disponibles depuis ${station} le ${formatDate(newDate)}</h3>`
+          );
+        });
+        resultsDiv.appendChild(dateChangeButtons);
+      } else {
+        nextTrains.forEach(t => {
+          const item = renderTrainItem(t);
+          item.addEventListener('click', () => showItinerary(station, searchDate, t, parcours));
+          resultsDiv.appendChild(item);
+        });
+        
+        // Ajouter les boutons de changement de date en bas pour plus d'options
+        const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
+          const newAfterDateTime = parseDateTime(newDate, '00:00');
+          showAvailableTrains(station, newDate, newAfterDateTime, parcours,
+            renderItinerarySegments(parcours, parcours.length > 1 ? () => {} : null) + 
+            `<h3>Trains disponibles depuis ${station} le ${formatDate(newDate)}</h3>`
+          );
+        });
+        resultsDiv.appendChild(dateChangeButtons);
+      }
+    } catch (err) {
+      const p = document.createElement('p');
+      p.textContent = `Erreur lors du chargement des correspondances: ${err.message}`;
+      resultsDiv.appendChild(p);
+    }
+  }
+
   async function showItinerary(departVille, departDate, train, parcours = []) {
     const departDateTime = parseDateTime(departDate, train.heure_depart || train.heure || '00:00');
     const arriveeDateTime = train.heure_arrivee ? parseDateTime(departDate, train.heure_arrivee) : departDateTime;
@@ -255,47 +344,9 @@
 
     let header = renderItinerarySegments(nouveauParcours, onRemoveLastStep);
     header += `<h3>Trains disponibles depuis ${train.destination} après ${formatDateTime(arriveeDateTime)}</h3>`;
-    resultsDiv.innerHTML = header;
     
-    // Ajouter l'event listener pour le bouton de suppression
-    const removeBtn = document.getElementById('removeLastStepBtn');
-    if (removeBtn) {
-      removeBtn.addEventListener('click', onRemoveLastStep);
-    }
-    
-    showLoading(resultsDiv, 'Chargement des correspondances…');
-
-    try {
-      const allNext = await fetchTrains({ date: departDate, origin: train.destination });
-      const nextTrains = allNext.filter(t => {
-        const tDateTime = parseDateTime(departDate, t.heure_depart || '00:00');
-        return tDateTime > arriveeDateTime;
-      });
-
-      resultsDiv.innerHTML = header;
-      
-      // Re-ajouter l'event listener après le rechargement du contenu
-      const removeBtnAfterLoad = document.getElementById('removeLastStepBtn');
-      if (removeBtnAfterLoad) {
-        removeBtnAfterLoad.addEventListener('click', onRemoveLastStep);
-      }
-      
-      if (!nextTrains.length) {
-        const p = document.createElement('p');
-        p.textContent = 'Aucun train disponible après cette heure.';
-        resultsDiv.appendChild(p);
-      } else {
-        nextTrains.forEach(t => {
-          const item = renderTrainItem(t);
-          item.addEventListener('click', () => showItinerary(train.destination, departDate, t, nouveauParcours));
-          resultsDiv.appendChild(item);
-        });
-      }
-    } catch (err) {
-      const p = document.createElement('p');
-      p.textContent = `Erreur lors du chargement des correspondances: ${err.message}`;
-      resultsDiv.appendChild(p);
-    }
+    // Utiliser la nouvelle fonction pour gérer l'affichage des trains
+    await showAvailableTrains(train.destination, departDate, arriveeDateTime, nouveauParcours, header);
 
     const reset = renderResetButton(() => {
       resultsDiv.innerHTML = '';

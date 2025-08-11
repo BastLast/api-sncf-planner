@@ -21,7 +21,7 @@ Application front-only (HTML/CSS/JS) qui interroge l'API Opendatasoft (dataset `
   - `refine=od_happy_card:"OUI"`
 
 Le code construit des URLs du type:
-`https://data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?limit=200&refine=date:"2025/08/25"&refine=od_happy_card:"OUI"&refine=origine:"TOULOUSE MATABIAU"`
+`https://data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?limit=90&refine=date:"2025/08/25"&refine=od_happy_card:"OUI"&refine=origine:"TOULOUSE MATABIAU"`
 
 ## Notes
 

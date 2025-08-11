@@ -11,22 +11,17 @@
         <h1>Recherche de trains SNCF</h1>
         <form id="searchForm">
             <label for="city">Gare de départ :</label>
-            <input list="stations" id="city" name="city" placeholder="Ex: TOULOUSE MATABIAU" required>
-            <datalist id="stations">
-                <option value="PARIS MONTPARNASSE"></option>
-                <option value="PARIS GARE DE LYON"></option>
-                <option value="LYON PART DIEU"></option>
-                <option value="MARSEILLE SAINT CHARLES"></option>
-                <option value="BORDEAUX SAINT JEAN"></option>
-                <option value="LILLE EUROPE"></option>
-                <option value="TOULOUSE MATABIAU"></option>
-            </datalist>
+            <input list="stations" id="city" name="city" placeholder="Tapez une gare (auto-complétion)…" required>
+            <datalist id="stations"></datalist>
             <label for="date">Date :</label>
             <input type="date" id="date" name="date" required>
             <button type="submit">Rechercher</button>
         </form>
         <div id="results"></div>
     </div>
-    <script type="module" src="./js/app.js"></script>
+    <script src="./js/utils.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Fonctions de rendu UI (global window.UI)
 (function(){
-  const { formatDateTime } = window.Utils;
+  const { formatDateTime, calculateDuration } = window.Utils;
 
   // Liste des emojis par gare
   const stationsWithEmoji = {
@@ -120,10 +120,18 @@
     const heure = train.heure_depart || '?';
     const dest = train.destination || '?';
     const arr = train.heure_arrivee ? ` (arrivée ${train.heure_arrivee})` : '';
+    
+    // Calculer la durée si les deux heures sont disponibles
+    const duration = calculateDuration(train.heure_depart, train.heure_arrivee);
+    const durationText = duration ? ` • ${duration}` : '';
+    
     div.innerHTML = `
       <div class="card-header">
-        <span class="badge">${heure}</span>
-        <strong>${numero}</strong>
+        <div class="card-header-main">
+          <span class="badge">${heure}</span>
+          <strong>${numero}</strong>
+        </div>
+        ${duration ? `<span class="duration-badge">${duration}</span>` : ''}
       </div>
       <div class="card-body">
         <span class="to">→ ${stationWithEmoji(dest)}${arr}</span>

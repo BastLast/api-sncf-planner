@@ -5,7 +5,7 @@ body {
     padding: 0;
 }
 .container {
-    max-width: 500px;
+        max-width: 720px;
     margin: 40px auto;
     background: #fff;
     padding: 30px;
@@ -14,7 +14,7 @@ body {
 }
 h1 {
     text-align: center;
-    color: #2c3e50;
+        color: #1f2d3d;
 }
 form {
     display: flex;
@@ -24,13 +24,13 @@ form {
 label {
     font-weight: bold;
 }
-select, input[type="date"] {
+select, input[type="date"], input[list] {
     padding: 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
 }
 button {
-    background: #2980b9;
+        background: #2563eb;
     color: #fff;
     border: none;
     padding: 10px;
@@ -39,7 +39,7 @@ button {
     font-size: 16px;
 }
 button:hover {
-    background: #3498db;
+        background: #1d4ed8;
 }
 #results {
     margin-top: 30px;
@@ -50,3 +50,55 @@ button:hover {
     border-radius: 4px;
     margin-bottom: 10px;
 }
+
+.itineraire-segment {
+    border-left: 3px solid #2980b9;
+        background: #f8fbff;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+/* Nouvelles classes pour look plus moderne */
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin: 12px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.card.subtle { background: #fafcff; }
+.card .card-header {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef2f7;
+}
+.card .card-body {
+    padding: 12px;
+}
+.badge {
+    background:#e2e8f0;
+    color:#1f2937;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:12px;
+}
+.to{ color:#334155; font-weight:500; }
+
+.loader{
+    display:flex; align-items:center; gap:10px; padding: 12px; color:#475569;
+}
+.spinner{
+    width:16px; height:16px; border:2px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg);} }
+
+.btn-danger{
+    margin:20px 0; padding:10px 18px; background:#e11d48; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:16px; display:block;
+}
+.btn-danger:hover{ background:#be123c; }
+
+.error{ color:#b91c1c; }

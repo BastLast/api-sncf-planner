@@ -10,20 +10,23 @@
     <div class="container">
         <h1>Recherche de trains SNCF</h1>
         <form id="searchForm">
-            <label for="city">Ville :</label>
-            <select id="city" name="city">
-                <option value="Paris">Paris</option>
-                <option value="Lyon">Lyon</option>
-                <option value="Marseille">Marseille</option>
-                <option value="Bordeaux">Bordeaux</option>
-                <option value="Lille">Lille</option>
-            </select>
+            <label for="city">Gare de départ :</label>
+            <input list="stations" id="city" name="city" placeholder="Ex: TOULOUSE MATABIAU" required>
+            <datalist id="stations">
+                <option value="PARIS MONTPARNASSE"></option>
+                <option value="PARIS GARE DE LYON"></option>
+                <option value="LYON PART DIEU"></option>
+                <option value="MARSEILLE SAINT CHARLES"></option>
+                <option value="BORDEAUX SAINT JEAN"></option>
+                <option value="LILLE EUROPE"></option>
+                <option value="TOULOUSE MATABIAU"></option>
+            </datalist>
             <label for="date">Date :</label>
             <input type="date" id="date" name="date" required>
             <button type="submit">Rechercher</button>
         </form>
         <div id="results"></div>
     </div>
-    <script src="app.js"></script>
+    <script type="module" src="./js/app.js"></script>
 </body>
 </html>

@@ -235,9 +235,34 @@
 
     const nouveauParcours = [...parcours, segment];
 
-    let header = renderItinerarySegments(nouveauParcours);
+    // Fonction pour supprimer la dernière étape
+    const onRemoveLastStep = () => {
+      if (nouveauParcours.length > 1) {
+        const parcoursReduit = nouveauParcours.slice(0, -1);
+        const lastSegment = parcoursReduit[parcoursReduit.length - 1];
+        
+        // Créer un objet train factice pour la dernière étape restante
+        const fakeTrain = {
+          train_no: lastSegment.train.numero,
+          destination: lastSegment.arrivee,
+          heure_depart: lastSegment.train.heure,
+          heure_arrivee: lastSegment.arriveeDateTime.toTimeString().slice(0, 5)
+        };
+        
+        showItinerary(lastSegment.depart, departDate, fakeTrain, parcoursReduit.slice(0, -1));
+      }
+    };
+
+    let header = renderItinerarySegments(nouveauParcours, onRemoveLastStep);
     header += `<h3>Trains disponibles depuis ${train.destination} après ${formatDateTime(arriveeDateTime)}</h3>`;
     resultsDiv.innerHTML = header;
+    
+    // Ajouter l'event listener pour le bouton de suppression
+    const removeBtn = document.getElementById('removeLastStepBtn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', onRemoveLastStep);
+    }
+    
     showLoading(resultsDiv, 'Chargement des correspondances…');
 
     try {
@@ -248,6 +273,13 @@
       });
 
       resultsDiv.innerHTML = header;
+      
+      // Re-ajouter l'event listener après le rechargement du contenu
+      const removeBtnAfterLoad = document.getElementById('removeLastStepBtn');
+      if (removeBtnAfterLoad) {
+        removeBtnAfterLoad.addEventListener('click', onRemoveLastStep);
+      }
+      
       if (!nextTrains.length) {
         const p = document.createElement('p');
         p.textContent = 'Aucun train disponible après cette heure.';

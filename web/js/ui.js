@@ -1,6 +1,6 @@
 // Fonctions de rendu UI (global window.UI)
 (function(){
-  const { formatDateTime, calculateDuration } = window.Utils;
+  const { formatDateTime, calculateDuration, calculateSegmentDuration } = window.Utils;
 
   // Liste des emojis par gare
   const stationsWithEmoji = {
@@ -140,16 +140,53 @@
     return div;
   }
 
-  function renderItinerarySegments(segments) {
+  function renderItinerarySegments(segments, onRemoveLastStep = null) {
     let html = '<h2>Itinéraire</h2>';
+    
     segments.forEach((seg, i) => {
       html += `<div class="itineraire-segment card subtle">
-        <p><strong>Étape ${i + 1}</strong></p>
+        <div class="segment-header">
+          <strong>Étape ${i + 1}</strong>
+        </div>
         <p>Départ : ${stationWithEmoji(seg.depart)} le ${formatDateTime(seg.departDateTime)}</p>
         <p>Train : ${seg.train.numero || '—'} vers ${stationWithEmoji(seg.train.destination || '—')} (départ ${seg.train.heure || '—'})</p>
-        <p>Arrivée : ${stationWithEmoji(seg.arrivee)} le ${formatDateTime(seg.arriveeDateTime)}</p>
-      </div>`;
+        <p>Arrivée : ${stationWithEmoji(seg.arrivee)} le ${formatDateTime(seg.arriveeDateTime)}</p>`;
+      
+      // Calculer et afficher la durée du voyage pour ce segment
+      const segmentDuration = calculateSegmentDuration(seg.departDateTime, seg.arriveeDateTime);
+      if (segmentDuration) {
+        html += `<p class="segment-duration">Durée du trajet : <span class="duration-highlight">${segmentDuration}</span></p>`;
+      }
+      
+      // Calculer et afficher le temps d'attente jusqu'au prochain train (si ce n'est pas le dernier segment)
+      if (i < segments.length - 1) {
+        const nextSeg = segments[i + 1];
+        const waitTime = calculateSegmentDuration(seg.arriveeDateTime, nextSeg.departDateTime);
+        if (waitTime) {
+          html += `<p class="wait-time">Temps d'attente : <span class="wait-highlight">${waitTime}</span></p>`;
+        }
+      }
+      
+      html += `</div>`;
     });
+    
+    // Calculer la durée totale du voyage
+    if (segments.length > 0) {
+      const totalDuration = calculateSegmentDuration(segments[0].departDateTime, segments[segments.length - 1].arriveeDateTime);
+      if (totalDuration) {
+        html += `<div class="total-duration card highlight">
+          <strong>Durée totale du voyage : ${totalDuration}</strong>
+        </div>`;
+      }
+    }
+    
+    // Ajouter le bouton pour supprimer la dernière étape si l'itinéraire a plus d'une étape
+    if (segments.length > 1 && onRemoveLastStep) {
+      html += `<div class="itinerary-actions">
+        <button id="removeLastStepBtn" class="btn-secondary">Supprimer la dernière étape</button>
+      </div>`;
+    }
+    
     return html;
   }
 

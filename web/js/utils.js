@@ -75,6 +75,31 @@ window.Utils = (function () {
     }
   }
 
+  // Calcule la durée entre deux dates complètes (DateTime)
+  function calculateSegmentDuration(startDateTime, endDateTime) {
+    if (!startDateTime || !endDateTime) return null;
+    
+    try {
+      const durationMs = endDateTime.getTime() - startDateTime.getTime();
+      const durationMinutes = Math.floor(durationMs / (1000 * 60));
+      
+      if (durationMinutes < 0) return null;
+      
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      
+      if (hours === 0) {
+        return `${minutes}min`;
+      } else if (minutes === 0) {
+        return `${hours}h`;
+      } else {
+        return `${hours}h${minutes.toString().padStart(2, '0')}`;
+      }
+    } catch {
+      return null;
+    }
+  }
+
   return { 
     normalizeStationForApi, 
     toRefineDate, 
@@ -82,6 +107,7 @@ window.Utils = (function () {
     formatDateTime, 
     formatDate,
     isValidSearchDate,
-    calculateDuration
+    calculateDuration,
+    calculateSegmentDuration
   };
 })();

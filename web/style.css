@@ -433,4 +433,111 @@ input:focus {
     .itineraire-segment strong {
         color: #f8fafc;
     }
+    
+    .segment-duration {
+        color: #a7f3d0 !important;
+        font-weight: 500;
+    }
+    
+    .wait-time {
+        color: #fbbf24 !important;
+        font-weight: 500;
+    }
+    
+    .duration-highlight {
+        color: #10b981;
+        font-weight: 600;
+    }
+    
+    .wait-highlight {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+    
+    .total-duration {
+        background: #1e40af !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .btn-secondary {
+        background: #6b7280 !important;
+        color: #f9fafb !important;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563 !important;
+    }
+}
+
+/* Nouveaux styles pour les durées et actions */
+.segment-duration {
+    color: #059669;
+    font-weight: 500;
+    font-style: italic;
+    margin: 8px 0;
+}
+
+.wait-time {
+    color: #d97706;
+    font-weight: 500;
+    font-style: italic;
+    margin: 8px 0;
+}
+
+.duration-highlight {
+    background: #dcfdf7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: #047857;
+}
+
+.wait-highlight {
+    background: #fef3c7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.total-duration {
+    background: #3b82f6;
+    color: white;
+    text-align: center;
+    font-size: 1.1em;
+    margin: 20px 0;
+    padding: 15px;
+}
+
+.segment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.itinerary-actions {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+    transform: translateY(0);
 }

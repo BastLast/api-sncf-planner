@@ -2,6 +2,117 @@
 (function(){
   const { formatDateTime } = window.Utils;
 
+  // Liste des emojis par gare
+  const stationsWithEmoji = {
+    'PARIS (intramuros)': '🗼',
+    'LYON (intramuros)': '🦁',
+    'BORDEAUX ST JEAN': '🍷',
+    'MARSEILLE ST CHARLES': '⚓',
+    'VALENCE TGV': '🍊',
+    'AVIGNON TGV': '🎭',
+    'STRASBOURG': '🏰',
+    'AEROPORT ROISSY CDG 2 TGV': '✈️',
+    'MARNE LA VALLEE CHESSY': '🎢',
+    'AIX EN PROVENCE TGV': '🌸',
+    'NANTES': '🦆',
+    'NIMES CENTRE': '🏛️',
+    'MONTPELLIER SAINT ROCH': '🌞',
+    'RENNES': '🐓',
+    'ST PIERRE DES CORPS': '🚂',
+    'LILLE (intramuros)': '🌼',
+    'TOULOUSE MATABIAU': '🛩️',
+    'BEZIERS': '🍇',
+    'NARBONNE': '🏖️',
+    'ANGERS SAINT LAUD': '🌹',
+    'MASSY TGV': '🏙️',
+    'MEUSE TGV': '🌾',
+    'LE MANS': '🏎️',
+    'DIJON VILLE': '🥒',
+    'MULHOUSE VILLE': '🚗',
+    'BELFORT MONTBELIARD TGV': '🪖',
+    'BESANCON FRANCHE COMTE TGV': '⏱️',
+    'TOULON': '⛴️',
+    'MONTAUBAN VILLE BOURBON': '🎨',
+    'POITIERS': '🤖',
+    'NICE VILLE': '🌴',
+    'ANTIBES': '⛵',
+    'CANNES': '🎬',
+    'SETE': '🐟',
+    'VIERZON': '🚜',
+    'CARCASSONNE': '🛡️',
+    'ST RAPHAEL VALESCURE': '🏝️',
+    'LA ROCHELLE VILLE': '🦪',
+    'PERPIGNAN': '🌶️',
+    'CHAMPAGNE ARDENNE TGV': '🍾',
+    'LAVAL': '🐄',
+    'MONTPELLIER SUD DE FRANCE': '🌻',
+    'AGEN': '🍑',
+    'TGV HAUTE PICARDIE': '🌬️',
+    'LORRAINE TGV': '🥧',
+    'BAYONNE': '🍫',
+    'ANGOULEME': '📚',
+    'NIMES PONT DU GARD': '🌉',
+    'BRIVE LA GAILLARDE': '🍯',
+    'LES AUBRAIS ORLEANS': '🏹',
+    'MOULINS SUR ALLIER': '🩰',
+    'NEVERS': '🏁',
+    'LIMOGES BENEDICTINS': '🍽️',
+    'DAX': '♨️',
+    'CHATEAUROUX': '🏯',
+    'COLMAR': '🌺',
+    'LA SOUTERRAINE': '⛏️',
+    'AGDE': '🏊',
+    'BRUXELLES MIDI': '🧇',
+    'LYON ST EXUPERY TGV.': '🛫',
+    'VANNES': '🦀',
+    'LES ARCS DRAGUIGNAN': '🏔️',
+    'LORIENT': '🛶',
+    'QUIMPER': '🖌️',
+    'CLERMONT FERRAND': '🌋',
+    'METZ VILLE': '🌳',
+    'ST BRIEUC': '🐚',
+    'SAUMUR': '🥂',
+    'AURAY': '🚤',
+    'LOURDES': '⛪',
+    'PAU': '🏇',
+    'TARBES': '⛷️',
+    'NANCY': '💮',
+    'BREST': '🚢',
+    'HENDAYE': '🏄',
+    'ST JEAN DE LUZ CIBOURE': '🦞',
+    'BIARRITZ': '🌊',
+    'MACON VILLE': '🥨',
+    'GUINGAMP': '⚽',
+    'ORTHEZ': '🥖',
+    'MORLAIX': '🌁',
+    'KARLSRUHE HBF': '🇩🇪',
+    'CHALON SUR SAONE': '🍎',
+    'CAHORS': '🍒',
+    'ARRAS': '💐',
+    'GOURDON': '🥦',
+    'SOUILLAC': '🥐',
+    'LA ROCHE SUR YON': '🐴',
+    'FRANKFURT AM MAIN HBF': '🍺',
+    'MANNHEIM HBF': '🎼',
+    'CHAMBERY CHALLES LES EAUX': '⛰️',
+    'ROCHEFORT': '🪝',
+    'VENDOME VILLIERS SUR LOIR': '🏞️',
+    'MACON LOCHE TGV': '🧀',
+    'SURGERES': '🧈',
+    'VICHY': '💧',
+    'RIOM CHATEL GUYON': '🪨',
+    'SAINT GERMAIN DES FOSSES': '🚉',
+    'ST NAZAIRE': '🛳️',
+    'ARLES': '🐂',
+    'BEAUNE': '🍄',
+    'BOURGES': '🎻',
+    'ROANNE': '🥩'
+  };
+
+  function stationWithEmoji(name) {
+    return stationsWithEmoji[name] ? `${name} ${stationsWithEmoji[name]}` : name;
+  }
+
   function renderTrainItem(train) {
     const div = document.createElement('div');
     div.className = 'train card';
@@ -15,7 +126,7 @@
         <strong>${numero}</strong>
       </div>
       <div class="card-body">
-        <span class="to">→ ${dest}${arr}</span>
+        <span class="to">→ ${stationWithEmoji(dest)}${arr}</span>
       </div>`;
     div.style.cursor = 'pointer';
     return div;
@@ -26,9 +137,9 @@
     segments.forEach((seg, i) => {
       html += `<div class="itineraire-segment card subtle">
         <p><strong>Étape ${i + 1}</strong></p>
-        <p>Départ : ${seg.depart} le ${formatDateTime(seg.departDateTime)}</p>
-        <p>Train : ${seg.train.numero || '—'} vers ${seg.train.destination || '—'} (départ ${seg.train.heure || '—'})</p>
-        <p>Arrivée : ${seg.arrivee} le ${formatDateTime(seg.arriveeDateTime)}</p>
+        <p>Départ : ${stationWithEmoji(seg.depart)} le ${formatDateTime(seg.departDateTime)}</p>
+        <p>Train : ${seg.train.numero || '—'} vers ${stationWithEmoji(seg.train.destination || '—')} (départ ${seg.train.heure || '—'})</p>
+        <p>Arrivée : ${stationWithEmoji(seg.arrivee)} le ${formatDateTime(seg.arriveeDateTime)}</p>
       </div>`;
     });
     return html;
@@ -43,7 +154,7 @@
   }
 
   function showResultsHeader(container, origin, dateText) {
-    container.innerHTML = `<h2>Trains au départ de ${origin} le ${dateText}</h2>`;
+  container.innerHTML = `<h2>Trains au départ de ${stationWithEmoji(origin)} le ${dateText}</h2>`;
   }
 
   function renderResetButton(onClick) {

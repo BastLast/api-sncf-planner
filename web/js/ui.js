@@ -176,53 +176,99 @@
   }
 
   function renderItinerarySegments(segments, onRemoveLastStep = null) {
-    let html = '<h2>Itinéraire</h2>';
-    
+    // Retourne un élément DOM complet (div)
+    const container = document.createElement('div');
+    container.className = 'itinerary-wrapper';
+    const title = document.createElement('h2');
+    title.textContent = 'Itinéraire';
+    container.appendChild(title);
+
     segments.forEach((seg, i) => {
-      html += `<div class="itineraire-segment card subtle">
-        <div class="segment-header">
-          <strong>Étape ${i + 1}</strong>
-        </div>
-        <p>Départ : ${stationWithEmoji(seg.depart)} le ${formatDateTime(seg.departDateTime)}</p>
-        <p>Train : ${seg.train.numero || '—'} vers ${stationWithEmoji(seg.train.destination || '—')} (départ ${seg.train.heure || '—'})</p>
-        <p>Arrivée : ${stationWithEmoji(seg.arrivee)} le ${formatDateTime(seg.arriveeDateTime)}</p>`;
-      
-      // Calculer et afficher la durée du voyage pour ce segment
+      const card = document.createElement('div');
+      card.className = 'itineraire-segment card subtle';
+
+      const header = document.createElement('div');
+      header.className = 'segment-header';
+      header.innerHTML = `<strong>Étape ${i + 1}</strong>`;
+      card.appendChild(header);
+
+      const pDepart = document.createElement('p');
+      pDepart.textContent = `Départ : ${stationWithEmoji(seg.depart)} le ${formatDateTime(seg.departDateTime)}`;
+      card.appendChild(pDepart);
+
+      const pTrain = document.createElement('p');
+      pTrain.textContent = `Train : ${seg.train.numero || '—'} vers ${stationWithEmoji(seg.train.destination || '—')} (départ ${seg.train.heure || '—'})`;
+      card.appendChild(pTrain);
+
+      const pArrivee = document.createElement('p');
+      pArrivee.textContent = `Arrivée : ${stationWithEmoji(seg.arrivee)} le ${formatDateTime(seg.arriveeDateTime)}`;
+      card.appendChild(pArrivee);
+
       const segmentDuration = calculateSegmentDuration(seg.departDateTime, seg.arriveeDateTime);
       if (segmentDuration) {
-        html += `<p class="segment-duration">Durée du trajet : <span class="duration-highlight">${segmentDuration}</span></p>`;
+        const pDur = document.createElement('p');
+        pDur.className = 'segment-duration';
+        pDur.innerHTML = `Durée du trajet : <span class="duration-highlight">${segmentDuration}</span>`;
+        card.appendChild(pDur);
       }
-      
-      // Calculer et afficher le temps d'attente jusqu'au prochain train (si ce n'est pas le dernier segment)
+
       if (i < segments.length - 1) {
         const nextSeg = segments[i + 1];
         const waitTime = calculateSegmentDuration(seg.arriveeDateTime, nextSeg.departDateTime);
         if (waitTime) {
-          html += `<p class="wait-time">Temps d'attente : <span class="wait-highlight">${waitTime}</span></p>`;
+          const pWait = document.createElement('p');
+            pWait.className = 'wait-time';
+            pWait.innerHTML = `Temps d'attente : <span class="wait-highlight">${waitTime}</span>`;
+            card.appendChild(pWait);
         }
       }
-      
-      html += `</div>`;
+
+      container.appendChild(card);
     });
-    
-    // Calculer la durée totale du voyage
+
     if (segments.length > 0) {
       const totalDuration = calculateSegmentDuration(segments[0].departDateTime, segments[segments.length - 1].arriveeDateTime);
       if (totalDuration) {
-        html += `<div class="total-duration card highlight">
-          <strong>Durée totale du voyage : ${totalDuration}</strong>
-        </div>`;
+        const totalDiv = document.createElement('div');
+        totalDiv.className = 'total-duration card highlight';
+        totalDiv.innerHTML = `<strong>Durée totale du voyage : ${totalDuration}</strong>`;
+        container.appendChild(totalDiv);
       }
     }
-    
-    // Ajouter le bouton pour supprimer la dernière étape si l'itinéraire a plus d'une étape
+
     if (segments.length > 1 && onRemoveLastStep) {
-      html += `<div class="itinerary-actions">
-        <button id="removeLastStepBtn" class="btn-secondary">Supprimer la dernière étape</button>
-      </div>`;
+      const actions = document.createElement('div');
+      actions.className = 'itinerary-actions';
+      const btn = document.createElement('button');
+      btn.id = 'removeLastStepBtn';
+      btn.className = 'btn-secondary';
+      btn.type = 'button';
+      btn.textContent = 'Supprimer la dernière étape';
+      btn.addEventListener('click', onRemoveLastStep);
+      actions.appendChild(btn);
+      container.appendChild(actions);
     }
-    
-    return html;
+    return container;
+  }
+
+  // Helper pour créer l'élément + header des trains disponibles
+  function createItineraryElement(segments, onRemoveLastStep, nextStation, afterDateTime) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'itinerary-block';
+    const itinEl = renderItinerarySegments(segments, onRemoveLastStep);
+    wrapper.appendChild(itinEl);
+    if (nextStation) {
+      const h3 = document.createElement('h3');
+      h3.textContent = `Trains disponibles depuis ${stationWithEmoji(nextStation)} après ${formatDateTime(afterDateTime)}`;
+      h3.id = 'available-trains-title';
+      wrapper.appendChild(h3);
+    }
+    const listContainer = document.createElement('div');
+    listContainer.id = 'availableTrains';
+    listContainer.setAttribute('role', 'region');
+    listContainer.setAttribute('aria-labelledby', 'available-trains-title');
+    wrapper.appendChild(listContainer);
+    return { wrapper, listContainer };
   }
 
   function showLoading(container, text = 'Chargement…') {
@@ -241,6 +287,7 @@
   window.UI = { 
     renderTrainItem, 
     renderItinerarySegments, 
+    createItineraryElement,
     showLoading, 
     showError, 
     showResultsHeader, 

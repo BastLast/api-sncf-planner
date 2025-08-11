@@ -28,5 +28,27 @@ window.Utils = (function () {
     }
   }
 
-  return { normalizeStationForApi, toRefineDate, parseDateTime, formatDateTime, formatDate };
+  // Nouvelle fonction pour valider une date de recherche
+  function isValidSearchDate(dateStr) {
+    if (!dateStr) return false;
+    
+    try {
+      const selectedDate = new Date(dateStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      return selectedDate >= today && !isNaN(selectedDate.getTime());
+    } catch {
+      return false;
+    }
+  }
+
+  return { 
+    normalizeStationForApi, 
+    toRefineDate, 
+    parseDateTime, 
+    formatDateTime, 
+    formatDate,
+    isValidSearchDate
+  };
 })();

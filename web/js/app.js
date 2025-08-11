@@ -10,38 +10,7 @@
   const stationInput = document.getElementById('city');
   const stationsDatalist = document.getElementById('stations');
 
-  // Remplissage dynamique des gares via facettes API (sur la date sélectionnée si présente)
-  async function hydrateStations() {
-    try {
-      // Indication visuelle du chargement des gares
-      stationInput.placeholder = "Chargement des gares...";
-      stationInput.disabled = true;
-      
-      const date = document.getElementById('date').value;
-      const stations = await fetchStations({ date: date || undefined });
-      
-      stationsDatalist.innerHTML = '';
-      stations.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        stationsDatalist.appendChild(opt);
-      });
-      
-      // Restaurer le placeholder et réactiver le champ
-      stationInput.placeholder = "Tapez une gare (auto-complétion)…";
-      stationInput.disabled = false;
-      
-      console.log(`${stations.length} gares chargées depuis l'API SNCF`);
-    } catch (e) {
-      // silencieux: si l'API échoue, l'utilisateur peut saisir manuellement
-      stationInput.placeholder = "Tapez une gare (API indisponible)";
-      stationInput.disabled = false;
-      console.warn('Erreur lors du chargement des gares:', e.message);
-    }
-  }
-
-  // Hydrate au chargement (plus besoin de recharger lors du changement de date)
-  window.addEventListener('DOMContentLoaded', hydrateStations);
+  // Suppression de la fonction hydrateStations dupliquée - utilisation de la version simplifiée plus bas
 
   // Liste hardcodée des gares SNCF
   const allStations = [
@@ -181,39 +150,65 @@
     updateStationsList(filtered);
   });
 
-  // Fonction simplifiée pour l'initialisation
+  // Fonction d'initialisation des gares (optimisée)
   function hydrateStations() {
     stationInput.placeholder = "Chargement des gares...";
     stationInput.disabled = true;
     
-    // Utiliser la liste hardcodée (pas de call API)
+    // Utiliser la liste hardcodée (performance améliorée)
     setTimeout(() => {
       loadAndStoreStations();
       stationInput.placeholder = "Tapez une gare (auto-complétion)…";
       stationInput.disabled = false;
-    }, 100); // Petit délai pour montrer l'état de chargement
+    }, 100);
   }
 
+  // Initialisation au chargement de la page
+  window.addEventListener('DOMContentLoaded', hydrateStations);
+
+  // Validation et traitement du formulaire
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const rawCity = stationInput.value;
+    
+    const rawCity = stationInput.value.trim();
+    const selectedDate = document.getElementById('date').value;
+    
+    // Validation des entrées
+    if (!rawCity) {
+      showError(resultsDiv, 'Veuillez saisir une gare de départ.');
+      return;
+    }
+    
+    if (!selectedDate) {
+      showError(resultsDiv, 'Veuillez sélectionner une date.');
+      return;
+    }
+    
+    // Vérifier que la date n'est pas dans le passé
+    const dateObj = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (dateObj < today) {
+      showError(resultsDiv, 'Veuillez sélectionner une date égale ou ultérieure à aujourd\'hui.');
+      return;
+    }
+    
     const city = normalizeStationForApi(rawCity);
-    const date = document.getElementById('date').value;
-
     showLoading(resultsDiv, 'Chargement des trains…');
     form.style.display = 'none';
 
     try {
-      const trains = await fetchTrains({ date, origin: city });
+      const trains = await fetchTrains({ date: selectedDate, origin: city });
       if (!trains.length) {
         resultsDiv.innerHTML = '<p>Aucun train trouvé pour cette gare à cette date (TGVmax/Happy Card).</p>';
         form.style.display = '';
         return;
       }
-      showResultsHeader(resultsDiv, city, formatDate(date));
+      showResultsHeader(resultsDiv, city, formatDate(selectedDate));
       trains.forEach((t) => {
         const item = renderTrainItem(t);
-        item.addEventListener('click', () => showItinerary(city, date, t, []));
+        item.addEventListener('click', () => showItinerary(city, selectedDate, t, []));
         resultsDiv.appendChild(item);
       });
     } catch (err) {

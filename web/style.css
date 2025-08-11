@@ -1,34 +1,74 @@
+/* Reset et base */
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #f5f5f5;
     margin: 0;
-    padding: 0;
+    padding: 20px;
+    line-height: 1.6;
+    color: #2d3748;
 }
+
 .container {
-        max-width: 720px;
-    margin: 40px auto;
+    max-width: 720px;
+    margin: 0 auto;
     background: #fff;
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
 h1 {
     text-align: center;
-        color: #1f2d3d;
+    color: #1f2d3d;
+    margin-bottom: 30px;
 }
+
+/* Formulaire amélioré */
 form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px;
 }
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 label {
-    font-weight: bold;
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
 }
-select, input[type="date"], input[list] {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    position: relative;
+
+.form-help {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Inputs améliorés */
+select, 
+input[type="date"], 
+input[list] {
+    padding: 12px 16px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[list]:focus,
+input[type="date"]:focus,
+select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 input[list]:disabled {
@@ -41,76 +81,240 @@ input[list]::placeholder {
     font-style: italic;
     opacity: 0.7;
 }
-button {
-        background: #2563eb;
+
+/* Boutons améliorés */
+.btn-primary {
+    background: #3b82f6;
     color: #fff;
     border: none;
-    padding: 10px;
-    border-radius: 4px;
+    padding: 12px 24px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
-button:hover {
-        background: #1d4ed8;
+
+.btn-primary:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
 }
+
+.btn-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-danger {
+    margin: 20px 0; 
+    padding: 12px 24px; 
+    background: #ef4444; 
+    color: #fff; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-size: 16px; 
+    font-weight: 600;
+    display: block;
+    transition: background-color 0.2s;
+}
+
+.btn-danger:hover { 
+    background: #dc2626; 
+}
+
+.btn-danger:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
+/* Résultats */
 #results {
     margin-top: 30px;
 }
+
+/* Cartes de train améliorées */
 .train {
-    background: #ecf0f1;
-    padding: 12px;
-    border-radius: 4px;
-    margin-bottom: 10px;
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.train:hover {
+    background: #f1f5f9;
+    border-color: #3b82f6;
+    cursor: pointer;
+    transform: translateY(-1px);
+}
+
+.train:focus-within {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .itineraire-segment {
-    border-left: 3px solid #2980b9;
-        background: #f8fbff;
-    padding: 10px 12px;
-    border-radius: 4px;
-    margin: 10px 0;
+    border-left: 4px solid #3b82f6;
+    background: #f8fbff;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 16px 0;
 }
 
-/* Nouvelles classes pour look plus moderne */
+/* Classes pour design moderne */
 .card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     margin: 12px 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s;
 }
-.card.subtle { background: #fafcff; }
-.card .card-header {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #eef2f7;
-}
-.card .card-body {
-    padding: 12px;
-}
-.badge {
-    background:#e2e8f0;
-    color:#1f2937;
-    padding:2px 8px;
-    border-radius:999px;
-    font-size:12px;
-}
-.to{ color:#334155; font-weight:500; }
 
-.loader{
-    display:flex; align-items:center; gap:10px; padding: 12px; color:#475569;
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.spinner{
-    width:16px; height:16px; border:2px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%;
+
+.card.subtle { 
+    background: #fafcff; 
+}
+
+.card .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.card .card-body {
+    padding: 16px 20px;
+}
+
+.badge {
+    background: #e2e8f0;
+    color: #1f2937;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.to { 
+    color: #374151; 
+    font-weight: 500; 
+}
+
+/* États de chargement et erreur */
+.loader {
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    padding: 20px; 
+    color: #6b7280;
+    justify-content: center;
+}
+
+.spinner {
+    width: 20px; 
+    height: 20px; 
+    border: 2px solid #cbd5e1; 
+    border-top-color: #3b82f6; 
+    border-radius: 50%;
     animation: spin 1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg);} }
 
-.btn-danger{
-    margin:20px 0; padding:10px 18px; background:#e11d48; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:16px; display:block;
+@keyframes spin { 
+    to { transform: rotate(360deg); } 
 }
-.btn-danger:hover{ background:#be123c; }
 
-.error{ color:#b91c1c; }
+.error { 
+    color: #dc2626; 
+    background: #fef2f2;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+    margin: 16px 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px 10px;
+        padding: 20px;
+    }
+    
+    .card .card-header,
+    .card .card-body {
+        padding: 12px 16px;
+    }
+    
+    .itineraire-segment {
+        padding: 12px 16px;
+    }
+}
+
+/* Accessibilité */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus visible pour navigation clavier */
+.train:focus,
+button:focus,
+input:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Mode sombre (optionnel) */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #111827;
+        color: #f3f4f6;
+    }
+    
+    .container {
+        background: #1f2937;
+        color: #f3f4f6;
+    }
+    
+    .train {
+        background: #374151;
+        color: #f3f4f6;
+    }
+    
+    .train:hover {
+        background: #4b5563;
+    }
+    
+    .card {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f3f4f6;
+    }
+    
+    input, select {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f3f4f6;
+    }
+}

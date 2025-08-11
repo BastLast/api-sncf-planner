@@ -3,22 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recherche de trains SNCF</title>
+    <meta name="description" content="Recherche de trains SNCF TGVmax - Trouvez les trains disponibles avec votre pass TGV">
+    <title>Recherche de trains SNCF TGVmax</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Recherche de trains SNCF</h1>
-        <form id="searchForm">
-            <label for="city">Gare de départ :</label>
-            <input list="stations" id="city" name="city" placeholder="Tapez une gare (auto-complétion)…" required>
-            <datalist id="stations"></datalist>
-            <label for="date">Date :</label>
-            <input type="date" id="date" name="date" required>
-            <button type="submit">Rechercher</button>
+    <main class="container" role="main">
+        <h1>Recherche de trains SNCF TGVmax</h1>
+        <form id="searchForm" role="search" aria-label="Formulaire de recherche de trains">
+            <div class="form-group">
+                <label for="city">Gare de départ <span aria-hidden="true">*</span> :</label>
+                <input 
+                    list="stations" 
+                    id="city" 
+                    name="city" 
+                    placeholder="Tapez une gare (auto-complétion)…" 
+                    required 
+                    aria-describedby="city-help"
+                    autocomplete="off">
+                <datalist id="stations"></datalist>
+                <small id="city-help" class="form-help">Commencez à taper pour voir les suggestions</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="date">Date <span aria-hidden="true">*</span> :</label>
+                <input 
+                    type="date" 
+                    id="date" 
+                    name="date" 
+                    required 
+                    aria-describedby="date-help"
+                    min="">
+                <small id="date-help" class="form-help">Sélectionnez une date à partir d'aujourd'hui</small>
+            </div>
+            
+            <button type="submit" class="btn-primary">
+                <span aria-hidden="true">🔍</span> Rechercher
+            </button>
         </form>
-        <div id="results"></div>
-    </div>
+        
+        <div id="results" role="region" aria-live="polite" aria-label="Résultats de la recherche"></div>
+    </main>
+    
+    <script>
+        // Définir la date minimale à aujourd'hui
+        document.getElementById('date').min = new Date().toISOString().split('T')[0];
+    </script>
     <script src="./js/utils.js"></script>
     <script src="./js/api.js"></script>
     <script src="./js/ui.js"></script>

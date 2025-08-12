@@ -4,29 +4,67 @@
   const { normalizeStationForApi, toRefineDate } = window.Utils;
   const ODS_BASE = 'https://data.sncf.com/api/explore/v2.1/catalog/datasets';
   const DATASET = 'tgvmax';
-  const DEFAULT_LIMIT = 90;
+  const DEFAULT_LIMIT = 90; // taille d'une "page" (l'API retourne au max ~100)
 
   // Normalisation des propriétés de train pour cohérence
-  async function fetchTrains({ date, origin, destination, limit = DEFAULT_LIMIT }) {
-    const params = new URLSearchParams();
-    params.set('limit', String(limit));
-    if (date) params.append('refine', `date:"${toRefineDate(date)}"`);
-    params.append('refine', 'od_happy_card:"OUI"');
-    if (origin) params.append('refine', `origine:"${normalizeStationForApi(origin)}"`);
-    if (destination) params.append('refine', `destination:"${normalizeStationForApi(destination)}"`);
+  async function fetchTrains({ date, origin, destination, limit = DEFAULT_LIMIT, maxPages = 6 } = {}) {
+    // Fonction interne pour un appel simple avec offset configurable
+    const singleCall = async (offset = 0) => {
+      const params = new URLSearchParams();
+      params.set('limit', String(limit));
+      if (offset) params.set('offset', String(offset));
+      if (date) params.append('refine', `date:"${toRefineDate(date)}"`);
+      params.append('refine', 'od_happy_card:"OUI"');
+      if (origin) params.append('refine', `origine:"${normalizeStationForApi(origin)}"`);
+      if (destination) params.append('refine', `destination:"${normalizeStationForApi(destination)}"`);
 
-    const url = `${ODS_BASE}/${DATASET}/records?${params.toString()}`;
-    
-    try {
+      const url = `${ODS_BASE}/${DATASET}/records?${params.toString()}`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Erreur API SNCF (${res.status}): ${res.statusText}`);
       }
-      
       const data = await res.json();
-      const results = Array.isArray(data.results) ? data.results : [];
-      
-      const normalized = results.map(r => ({
+      return Array.isArray(data.results) ? data.results : [];
+    };
+
+    try {
+      let pageIndex = 0;
+      let keepGoing = true;
+      const aggregated = [];
+
+      while (keepGoing && pageIndex < maxPages) {
+        const offset = pageIndex * limit;
+        let pageResults = [];
+        try {
+          pageResults = await singleCall(offset);
+        } catch (pageErr) {
+          console.warn(`Erreur pagination (page ${pageIndex + 1}, offset ${offset})`, pageErr);
+          // On arrête la boucle mais on retourne ce qu'on a déjà
+          break;
+        }
+
+        aggregated.push(...pageResults);
+
+        if (pageResults.length < limit) {
+          // Page incomplète => plus de résultats
+            keepGoing = false;
+        } else {
+          pageIndex += 1;
+        }
+      }
+
+      // Déduplication basique (clé composite) pour éviter doublons possibles
+      const seen = new Set();
+      const deduped = [];
+      for (const r of aggregated) {
+        const key = `${r.date}|${r.origine}|${r.destination}|${r.train_no || r.numero}|${r.heure_depart || r.heure}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(r);
+        }
+      }
+
+      const normalized = deduped.map(r => ({
         date: r.date,
         origine: r.origine,
         destination: r.destination,
@@ -36,8 +74,7 @@
         axe: r.axe,
         entity: r.entity,
       }));
-      
-      // Tri par heure de départ
+
       normalized.sort((a, b) => (a.heure_depart || '').localeCompare(b.heure_depart || ''));
       return normalized;
     } catch (error) {

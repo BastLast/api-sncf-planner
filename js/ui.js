@@ -283,6 +283,110 @@
   container.innerHTML = `<h2>Trains au départ de ${stationWithEmoji(origin)} le ${dateText}</h2>`;
   }
 
+  // Fonction pour afficher les trains groupés par destination avec menu latéral
+  function renderGroupedTrainsView(origin, dateText, trainsByDestination, onTrainClick) {
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'grouped-trains-container';
+
+    // Header principal
+    const header = document.createElement('div');
+    header.className = 'grouped-header';
+    header.innerHTML = `<h2>Trains au départ de ${stationWithEmoji(origin)} le ${dateText}</h2>`;
+    mainContainer.appendChild(header);
+
+    // Container principal avec sidebar et contenu
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'content-wrapper';
+
+    // Menu latéral avec liste des destinations
+    const sidebar = document.createElement('div');
+    sidebar.className = 'destinations-sidebar';
+    
+    const sidebarTitle = document.createElement('h3');
+    sidebarTitle.textContent = 'Destinations disponibles';
+    sidebarTitle.className = 'sidebar-title';
+    sidebar.appendChild(sidebarTitle);
+
+    const destinationsList = document.createElement('ul');
+    destinationsList.className = 'destinations-list';
+
+    // Zone de contenu principal
+    const mainContent = document.createElement('div');
+    mainContent.className = 'trains-content';
+
+    // Créer les sections pour chaque destination
+    const destinations = Object.keys(trainsByDestination).sort();
+    
+    destinations.forEach((destination, index) => {
+      const trains = trainsByDestination[destination];
+      
+      // Créer l'élément de menu latéral
+      const listItem = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = `#destination-${index}`;
+      link.className = 'destination-link';
+      link.innerHTML = `
+        <span class="destination-name">${stationWithEmoji(destination)}</span>
+        <span class="train-count">${trains.length} train${trains.length > 1 ? 's' : ''}</span>
+      `;
+      
+      // Scroll vers la section correspondante
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetSection = document.getElementById(`destination-${index}`);
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Mise à jour de l'état actif
+          document.querySelectorAll('.destination-link').forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+        }
+      });
+      
+      listItem.appendChild(link);
+      destinationsList.appendChild(listItem);
+
+      // Créer la section de contenu pour cette destination
+      const section = document.createElement('div');
+      section.className = 'destination-section';
+      section.id = `destination-${index}`;
+
+      const sectionHeader = document.createElement('h3');
+      sectionHeader.className = 'destination-header';
+      sectionHeader.innerHTML = `
+        <span class="destination-title">${stationWithEmoji(destination)}</span>
+        <span class="train-count-header">${trains.length} train${trains.length > 1 ? 's' : ''}</span>
+      `;
+      section.appendChild(sectionHeader);
+
+      const trainsGrid = document.createElement('div');
+      trainsGrid.className = 'trains-grid';
+
+      // Ajouter les trains de cette destination
+      trains.forEach(train => {
+        const trainElement = renderTrainItem(train);
+        trainElement.addEventListener('click', () => onTrainClick(train, destination));
+        trainsGrid.appendChild(trainElement);
+      });
+
+      section.appendChild(trainsGrid);
+      mainContent.appendChild(section);
+    });
+
+    // Activer le premier élément par défaut
+    const firstLink = destinationsList.querySelector('.destination-link');
+    if (firstLink) {
+      firstLink.classList.add('active');
+    }
+
+    sidebar.appendChild(destinationsList);
+    contentWrapper.appendChild(sidebar);
+    contentWrapper.appendChild(mainContent);
+    mainContainer.appendChild(contentWrapper);
+
+    return mainContainer;
+  }
+
   // Export unique
   window.UI = { 
     renderTrainItem, 
@@ -292,6 +396,7 @@
     showError, 
     showResultsHeader, 
     renderResetButton,
-    renderDateChangeButtons
+    renderDateChangeButtons,
+    renderGroupedTrainsView
   };
 })();

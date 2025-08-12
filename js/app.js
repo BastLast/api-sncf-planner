@@ -205,17 +205,48 @@
         form.style.display = '';
         return;
       }
-      showResultsHeader(resultsDiv, city, formatDate(selectedDate));
-      trains.forEach((t) => {
-        const item = renderTrainItem(t);
-        item.addEventListener('click', () => showItinerary(city, selectedDate, t, []));
-        resultsDiv.appendChild(item);
+      
+      // Grouper les trains par destination
+      const trainsByDestination = trains.reduce((groups, train) => {
+        const dest = train.destination || 'Destination inconnue';
+        if (!groups[dest]) {
+          groups[dest] = [];
+        }
+        groups[dest].push(train);
+        return groups;
+      }, {});
+      
+      // Trier les trains dans chaque groupe par heure de départ
+      Object.keys(trainsByDestination).forEach(dest => {
+        trainsByDestination[dest].sort((a, b) => {
+          const timeA = a.heure_depart || a.heure || '00:00';
+          const timeB = b.heure_depart || b.heure || '00:00';
+          return timeA.localeCompare(timeB);
+        });
       });
+      
+      showTrainsGroupedByDestination(resultsDiv, city, formatDate(selectedDate), trainsByDestination, selectedDate);
     } catch (err) {
       showError(resultsDiv, `Erreur lors du chargement: ${err.message}`);
       form.style.display = '';
     }
   });
+
+  // Fonction pour afficher les trains groupés par destination avec menu latéral
+  function showTrainsGroupedByDestination(container, origin, dateText, trainsByDestination, selectedDate) {
+    const { renderGroupedTrainsView } = window.UI;
+    const groupedView = renderGroupedTrainsView(origin, dateText, trainsByDestination, (train, destination) => {
+      showItinerary(origin, selectedDate, train, []);
+    });
+    container.innerHTML = '';
+    container.appendChild(groupedView);
+    
+    // Élargir le conteneur pour la vue groupée
+    const mainContainer = document.querySelector('.container');
+    if (mainContainer) {
+      mainContainer.classList.add('wide-view');
+    }
+  }
 
   // Nouvelle fonction pour afficher les trains disponibles avec gestion des changements de date
   async function showAvailableTrains(station, searchDate, afterDateTime, parcours, containers) {
@@ -306,6 +337,12 @@
       form.style.display = '';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       hydrateStations();
+      
+      // Remettre le conteneur à sa taille normale
+      const mainContainer = document.querySelector('.container');
+      if (mainContainer) {
+        mainContainer.classList.remove('wide-view');
+      }
     });
     resultsDiv.appendChild(reset);
 

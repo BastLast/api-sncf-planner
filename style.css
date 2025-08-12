@@ -19,6 +19,13 @@ body {
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: max-width 0.3s ease;
+}
+
+/* Container élargi pour la vue groupée */
+.container.wide-view {
+    max-width: 1400px;
+    padding: 20px;
 }
 
 h1 {
@@ -615,5 +622,202 @@ input:focus {
     .btn-date-change {
         width: 100%;
         max-width: 200px;
+    }
+}
+
+/* Styles pour la vue groupée par destinations */
+.grouped-trains-container {
+    margin-top: 20px;
+}
+
+.grouped-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.content-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.destinations-sidebar {
+    width: 320px;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 25px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.sidebar-title {
+    margin: 0 0 20px 0;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #1f2937;
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.destinations-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.destinations-list li {
+    margin-bottom: 8px;
+}
+
+.destination-link {
+    display: block;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: #4b5563;
+    background: #ffffff;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.destination-link:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+}
+
+.destination-link.active {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.destination-name {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.train-count {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
+.destination-link.active .train-count {
+    opacity: 0.9;
+}
+
+.trains-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.destination-section {
+    margin-bottom: 40px;
+    scroll-margin-top: 20px;
+}
+
+.destination-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 20px 0;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.destination-title {
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.train-count-header {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.trains-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+/* Responsive pour la vue groupée */
+@media (min-width: 1400px) {
+    .trains-grid {
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 25px;
+    }
+    
+    .content-wrapper {
+        gap: 30px;
+    }
+    
+    .destinations-sidebar {
+        width: 360px;
+        padding: 30px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .content-wrapper {
+        flex-direction: column;
+    }
+    
+    .destinations-sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+        margin-bottom: 20px;
+    }
+    
+    .destinations-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 8px;
+    }
+    
+    .trains-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .destinations-sidebar {
+        padding: 15px;
+    }
+    
+    .destinations-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .destination-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .trains-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .destination-link {
+        padding: 10px 12px;
     }
 }

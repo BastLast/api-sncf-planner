@@ -274,11 +274,31 @@
         });
         listContainer.appendChild(dateChangeButtons);
       } else {
-        nextTrains.forEach(t => {
-          const item = renderTrainItem(t);
-          item.addEventListener('click', () => showItinerary(station, searchDate, t, parcours));
-          listContainer.appendChild(item);
+        // Grouper les trains par destination comme dans la recherche initiale
+        const trainsByDestination = nextTrains.reduce((groups, train) => {
+          const dest = train.destination || 'Destination inconnue';
+          if (!groups[dest]) {
+            groups[dest] = [];
+          }
+          groups[dest].push(train);
+          return groups;
+        }, {});
+        
+        // Trier les trains dans chaque groupe par heure de départ
+        Object.keys(trainsByDestination).forEach(dest => {
+          trainsByDestination[dest].sort((a, b) => {
+            const timeA = a.heure_depart || a.heure || '00:00';
+            const timeB = b.heure_depart || b.heure || '00:00';
+            return timeA.localeCompare(timeB);
+          });
         });
+        
+        // Utiliser la même interface groupée que pour la recherche initiale
+        const { renderGroupedTrainsView } = window.UI;
+        const groupedView = renderGroupedTrainsView(station, formatDate(searchDate), trainsByDestination, (train, destination) => {
+          showItinerary(station, searchDate, train, parcours);
+        });
+        listContainer.appendChild(groupedView);
         
         const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
           const newAfterDateTime = parseDateTime(newDate, '00:00');

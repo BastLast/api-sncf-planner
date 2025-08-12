@@ -821,3 +821,102 @@ input:focus {
         padding: 10px 12px;
     }
 }
+
+/* Styles pour le sélecteur de ville */
+.city-selector-section {
+    margin: 25px 0;
+    padding: 25px;
+    background: #f0f9ff;
+    border: 2px dashed #0ea5e9;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.city-selector-title {
+    color: #0c4a6e;
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.city-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.city-selector-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 2px solid #bae6fd;
+    font-size: 16px;
+    text-align: center;
+    background: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.city-selector-input:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.city-selector-input::placeholder {
+    color: #64748b;
+    font-style: italic;
+}
+
+.city-select-btn {
+    background: #0ea5e9;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 150px;
+}
+
+.city-select-btn:hover:not(:disabled) {
+    background: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.city-select-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.city-select-btn:disabled {
+    background: #cbd5e1;
+    color: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .city-selector-section {
+        padding: 20px 15px;
+        margin: 20px 0;
+    }
+    
+    .city-input-container {
+        max-width: 100%;
+    }
+    
+    .city-selector-input {
+        font-size: 16px; /* Empêcher le zoom sur iOS */
+    }
+    
+    .city-select-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}

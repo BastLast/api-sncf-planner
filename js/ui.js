@@ -387,6 +387,99 @@
     return mainContainer;
   }
 
+  // Fonction pour rendre un sélecteur de ville avec autocomplétion
+  function renderCitySelector(allStations, onCitySelect, currentStation) {
+    const container = document.createElement('div');
+    container.className = 'city-selector-section';
+    
+    const title = document.createElement('h4');
+    title.textContent = 'Ou choisissez une autre ville de correspondance :';
+    title.className = 'city-selector-title';
+    container.appendChild(title);
+    
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'city-input-container';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'city-selector-input';
+    input.placeholder = 'Tapez une ville...';
+    input.setAttribute('list', 'city-selector-datalist');
+    input.setAttribute('autocomplete', 'off');
+    
+    const datalist = document.createElement('datalist');
+    datalist.id = 'city-selector-datalist';
+    
+    // Filtrer pour exclure la gare actuelle et ajouter toutes les autres
+    const filteredStations = allStations.filter(station => station !== currentStation);
+    
+    // Fonction pour mettre à jour la datalist
+    function updateDatalist(stations) {
+      datalist.innerHTML = '';
+      stations.forEach(station => {
+        const option = document.createElement('option');
+        option.value = station;
+        datalist.appendChild(option);
+      });
+    }
+    
+    // Initialiser avec toutes les stations
+    updateDatalist(filteredStations);
+    
+    // Filtrage en temps réel
+    input.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      if (!query || query.length < 2) {
+        updateDatalist(filteredStations);
+        return;
+      }
+      
+      const filtered = filteredStations.filter(station => 
+        station.toLowerCase().includes(query)
+      ).slice(0, 20); // Limiter à 20 résultats
+      
+      updateDatalist(filtered);
+    });
+    
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.className = 'btn-primary city-select-btn';
+    selectButton.textContent = 'Choisir cette ville';
+    selectButton.disabled = true;
+    
+    // Activer/désactiver le bouton selon la saisie
+    input.addEventListener('input', () => {
+      const value = input.value.trim();
+      selectButton.disabled = !value || !filteredStations.includes(value);
+    });
+    
+    // Gérer la sélection
+    selectButton.addEventListener('click', () => {
+      const selectedCity = input.value.trim();
+      if (selectedCity && filteredStations.includes(selectedCity)) {
+        onCitySelect(selectedCity);
+      }
+    });
+    
+    // Permettre la sélection avec Entrée
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const selectedCity = input.value.trim();
+        if (selectedCity && filteredStations.includes(selectedCity)) {
+          onCitySelect(selectedCity);
+        }
+      }
+    });
+    
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(datalist);
+    inputContainer.appendChild(selectButton);
+    container.appendChild(inputContainer);
+    
+    return container;
+  }
+
   // Export unique
   window.UI = { 
     renderTrainItem, 
@@ -397,6 +490,7 @@
     showResultsHeader, 
     renderResetButton,
     renderDateChangeButtons,
-    renderGroupedTrainsView
+    renderGroupedTrainsView,
+    renderCitySelector
   };
 })();

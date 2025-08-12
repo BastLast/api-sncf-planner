@@ -3,7 +3,7 @@
 (function(){
   const { fetchTrains, fetchStations } = window.Api;
   const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi, addDaysToDate } = window.Utils;
-  const { renderTrainItem, renderItinerarySegments, createItineraryElement, showLoading, showError, showResultsHeader, renderResetButton, renderDateChangeButtons } = window.UI;
+  const { renderTrainItem, renderItinerarySegments, createItineraryElement, showLoading, showError, showResultsHeader, renderResetButton, renderDateChangeButtons, renderCitySelector } = window.UI;
 
   const form = document.getElementById('searchForm');
   const resultsDiv = document.getElementById('results');
@@ -248,8 +248,9 @@
     }
   }
 
-  // Nouvelle fonction pour afficher les trains disponibles avec gestion des changements de date
+  // Nouvelle fonction pour afficher les trains disponibles avec gestion des changements de date et navigation par ville
   async function showAvailableTrains(station, searchDate, afterDateTime, parcours, containers) {
+    console.log('Appel de showAvailableTrains pour', station, searchDate, afterDateTime);
     const { listContainer } = containers;
     listContainer.innerHTML = '';
     showLoading(listContainer, 'Chargement des correspondances…');
@@ -266,6 +267,7 @@
         const p = document.createElement('p');
         p.textContent = `Aucun train disponible depuis ${station} après ${formatDateTime(afterDateTime)} le ${formatDate(searchDate)}.`;
         listContainer.appendChild(p);
+        
         const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
           const newAfterDateTime = parseDateTime(newDate, '00:00');
           showAvailableTrains(station, newDate, newAfterDateTime, parcours, containers);
@@ -277,12 +279,22 @@
           item.addEventListener('click', () => showItinerary(station, searchDate, t, parcours));
           listContainer.appendChild(item);
         });
+        
         const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
           const newAfterDateTime = parseDateTime(newDate, '00:00');
           showAvailableTrains(station, newDate, newAfterDateTime, parcours, containers);
         });
         listContainer.appendChild(dateChangeButtons);
       }
+      
+      // Ajouter le sélecteur de ville après les trains (ou après le message d'absence de trains)
+      console.log('Affichage du sélecteur de ville');
+      const citySelector = renderCitySelector(allStations, (selectedCity) => {
+        console.log('Ville sélectionnée :', selectedCity);
+        showAvailableTrains(selectedCity, searchDate, afterDateTime, parcours, containers);
+      }, station);
+      listContainer.appendChild(citySelector);
+      
     } catch (err) {
       listContainer.innerHTML = '';
       const p = document.createElement('p');

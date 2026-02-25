@@ -391,6 +391,12 @@
           showItinerary(station, searchDate, train, parcours);
         });
         listContainer.appendChild(groupedView);
+
+        // Élargir le conteneur pour la vue groupée
+        const mainContainer = document.querySelector('.container');
+        if (mainContainer) {
+          mainContainer.classList.add('wide-view');
+        }
         
         const dateChangeButtons = renderDateChangeButtons(searchDate, station, (newDate) => {
           const newAfterDateTime = parseDateTime(newDate, '00:00');

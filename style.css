@@ -24,7 +24,7 @@ body {
 
 /* Container élargi pour la vue groupée */
 .container.wide-view {
-    max-width: 1400px;
+    max-width: min(1400px, calc(100vw - 470px));
     padding: 20px;
 }
 

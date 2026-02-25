@@ -2,7 +2,7 @@
 
 (function(){
   const { fetchTrains, fetchStations } = window.Api;
-  const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi, addDaysToDate } = window.Utils;
+  const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi, addDaysToDate, dateToDateStr } = window.Utils;
   const { renderTrainItem, renderItinerarySegments, createItineraryElement, showLoading, showError, showResultsHeader, renderResetButton, renderDateChangeButtons, renderCitySelector } = window.UI;
 
   const form = document.getElementById('searchForm');
@@ -259,7 +259,8 @@
       const allNext = await fetchTrains({ date: searchDate, origin: station });
       const nextTrains = allNext.filter(t => {
         const tDateTime = parseDateTime(searchDate, t.heure_depart || '00:00');
-        return tDateTime > afterDateTime;
+        // Filter: must depart after arrival AND must not go back to same station
+        return tDateTime > afterDateTime && t.destination !== station;
       });
 
       listContainer.innerHTML = '';
@@ -325,7 +326,12 @@
 
   async function showItinerary(departVille, departDate, train, parcours = []) {
     const departDateTime = parseDateTime(departDate, train.heure_depart || train.heure || '00:00');
-    const arriveeDateTime = train.heure_arrivee ? parseDateTime(departDate, train.heure_arrivee) : departDateTime;
+    let arriveeDateTime = train.heure_arrivee ? parseDateTime(departDate, train.heure_arrivee) : departDateTime;
+
+    // Handle overnight trains: if arrival time is before departure time, arrival is next day
+    if (arriveeDateTime < departDateTime) {
+      arriveeDateTime = new Date(arriveeDateTime.getTime() + 24 * 60 * 60 * 1000);
+    }
 
     const segment = {
       depart: departVille,
@@ -347,6 +353,9 @@
         const parcoursReduit = nouveauParcours.slice(0, -1);
         const lastSegment = parcoursReduit[parcoursReduit.length - 1];
         
+        // Use the actual departure date of the last segment, not the original search date
+        const lastSegmentDateStr = dateToDateStr(lastSegment.departDateTime);
+        
         // Créer un objet train factice pour la dernière étape restante
         const fakeTrain = {
           train_no: lastSegment.train.numero,
@@ -355,7 +364,7 @@
           heure_arrivee: lastSegment.arriveeDateTime.toTimeString().slice(0, 5)
         };
         
-        showItinerary(lastSegment.depart, departDate, fakeTrain, parcoursReduit.slice(0, -1));
+        showItinerary(lastSegment.depart, lastSegmentDateStr, fakeTrain, parcoursReduit.slice(0, -1));
       }
     };
 
@@ -378,7 +387,9 @@
     });
     resultsDiv.appendChild(reset);
 
-    await showAvailableTrains(train.destination, departDate, arriveeDateTime, nouveauParcours, { listContainer });
+    // Use the arrival date (which may be next day for overnight trains) for correspondence search
+    const arrivalDateStr = dateToDateStr(arriveeDateTime);
+    await showAvailableTrains(train.destination, arrivalDateStr, arriveeDateTime, nouveauParcours, { listContainer });
   }
 
   // Exposer pour debug manuel si besoin

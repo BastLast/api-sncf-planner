@@ -130,6 +130,49 @@ window.Utils = (function () {
     return dates;
   }
 
+  // Convert a Date object to YYYY-MM-DD string
+  function dateToDateStr(dt) {
+    const y = dt.getFullYear();
+    const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+    const d = dt.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Count the number of nights spent at a station between two DateTimes.
+  // A "night" = the wait overlaps with a 22:00→06:00 window AND total wait ≥ 6h.
+  function countNights(arrivalDateTime, departureDateTime) {
+    const waitMs = departureDateTime.getTime() - arrivalDateTime.getTime();
+    const sixHoursMs = 6 * 60 * 60 * 1000;
+    if (waitMs < sixHoursMs) return 0;
+
+    let nights = 0;
+    // Start from the day of arrival
+    const day = new Date(arrivalDateTime);
+    day.setHours(0, 0, 0, 0);
+
+    const endDay = new Date(departureDateTime);
+    endDay.setHours(0, 0, 0, 0);
+    endDay.setDate(endDay.getDate() + 1);
+
+    while (day <= endDay) {
+      // Night window: 22:00 this day → 06:00 next day
+      const nightStart = new Date(day);
+      nightStart.setHours(22, 0, 0, 0);
+      const nightEnd = new Date(day);
+      nightEnd.setDate(nightEnd.getDate() + 1);
+      nightEnd.setHours(6, 0, 0, 0);
+
+      // Check if [arrival, departure] overlaps [nightStart, nightEnd]
+      if (arrivalDateTime < nightEnd && departureDateTime > nightStart) {
+        nights++;
+      }
+
+      day.setDate(day.getDate() + 1);
+    }
+
+    return nights;
+  }
+
   return { 
     normalizeStationForApi, 
     toRefineDate, 
@@ -140,6 +183,8 @@ window.Utils = (function () {
     calculateDuration,
     calculateSegmentDuration,
     addDaysToDate,
-    getNextDates
+    getNextDates,
+    dateToDateStr,
+    countNights
   };
 })();

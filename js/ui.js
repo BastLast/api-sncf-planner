@@ -1,6 +1,6 @@
 // Fonctions de rendu UI (global window.UI)
 (function(){
-  const { formatDateTime, calculateDuration, calculateSegmentDuration, getNextDates, formatDate } = window.Utils;
+  const { formatDateTime, calculateDuration, calculateSegmentDuration, getNextDates, formatDate, countNights } = window.Utils;
   // NOTE: Ce module construit des éléments (DOM nodes) sauf renderItinerarySegments qui retourne une string HTML (à harmoniser plus tard si besoin).
 
   function renderResetButton(onClick) {
@@ -221,6 +221,16 @@
             pWait.innerHTML = `Temps d'attente : <span class="wait-highlight">${waitTime}</span>`;
             card.appendChild(pWait);
         }
+
+        // Night detection: show overnight stays between segments
+        const nights = countNights(seg.arriveeDateTime, nextSeg.departDateTime);
+        if (nights > 0) {
+          const nightDiv = document.createElement('div');
+          nightDiv.className = 'night-indicator';
+          const nightLabel = nights === 1 ? 'nuit' : 'nuits';
+          nightDiv.innerHTML = `<span class="night-icon">🌙</span> <strong>${nights} ${nightLabel}</strong> à ${stationWithEmoji(seg.arrivee)}`;
+          card.appendChild(nightDiv);
+        }
       }
 
       container.appendChild(card);
@@ -402,6 +412,8 @@
     
     const input = document.createElement('input');
     input.type = 'text';
+    input.id = 'city-selector-input';
+    input.name = 'city-selector';
     input.className = 'city-selector-input';
     input.placeholder = 'Tapez une ville...';
     input.setAttribute('list', 'city-selector-datalist');

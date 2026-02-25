@@ -461,6 +461,11 @@ input:focus {
         font-weight: 600;
     }
     
+    .night-indicator {
+        background: linear-gradient(135deg, #0f0a2e, #1e1b4b);
+        color: #c7d2fe;
+    }
+    
     .total-duration {
         background: #1e40af !important;
         color: #f1f5f9 !important;
@@ -522,6 +527,26 @@ input:focus {
     border-radius: 4px;
     font-weight: 600;
     color: #92400e;
+}
+
+.night-indicator {
+    margin: 10px 0 4px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #1e1b4b, #312e81);
+    color: #e0e7ff;
+    border-radius: 8px;
+    font-size: 0.95em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.night-indicator .night-icon {
+    font-size: 1.2em;
+}
+
+.night-indicator strong {
+    color: #fbbf24;
 }
 
 .total-duration {

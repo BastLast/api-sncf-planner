@@ -11,6 +11,14 @@
 <body>
     <main class="container" role="main">
         <h1>Recherche de trains SNCF TGVmax</h1>
+
+        <!-- Mode tabs -->
+        <div class="mode-tabs" role="tablist">
+            <button class="mode-tab active" data-mode="manual" role="tab" aria-selected="true">🔍 Recherche manuelle</button>
+            <button class="mode-tab" data-mode="auto" role="tab" aria-selected="false">🗺️ Itinéraire automatique</button>
+        </div>
+
+        <!-- Manual search form (existing) -->
         <form id="searchForm" role="search" aria-label="Formulaire de recherche de trains">
             <div class="form-group">
                 <label for="city">Gare de départ <span aria-hidden="true">*</span> :</label>
@@ -42,6 +50,39 @@
                 <span aria-hidden="true">🔍</span> Rechercher
             </button>
         </form>
+
+        <!-- Auto itinerary form -->
+        <form id="autoForm" style="display: none" role="search" aria-label="Planification d'itinéraire automatique">
+            <p class="auto-description">Trouvez le trajet TGVmax le plus rapide entre deux villes, avec des étapes intermédiaires optionnelles.</p>
+
+            <div class="auto-form-row">
+                <div class="form-group auto-form-cell">
+                    <label for="auto-departure">Gare de départ <span aria-hidden="true">*</span> :</label>
+                    <input list="stations" id="auto-departure" name="auto-departure" required autocomplete="off" placeholder="Ex: PARIS (intramuros)">
+                </div>
+                <div class="form-group auto-form-cell">
+                    <label for="auto-arrival">Gare d'arrivée <span aria-hidden="true">*</span> :</label>
+                    <input list="stations" id="auto-arrival" name="auto-arrival" required autocomplete="off" placeholder="Ex: NICE VILLE">
+                </div>
+                <div class="form-group auto-form-cell auto-form-date">
+                    <label for="auto-date">Date de départ <span aria-hidden="true">*</span> :</label>
+                    <input type="date" id="auto-date" name="auto-date" required>
+                </div>
+            </div>
+
+            <div class="waypoints-section">
+                <div class="waypoints-header">
+                    <h3 class="waypoints-title">Étapes intermédiaires <span class="optional-tag">(optionnel)</span></h3>
+                    <button type="button" id="add-waypoint" class="btn-add-waypoint">+ Ajouter une étape</button>
+                </div>
+                <div id="waypoints-list"></div>
+                <p class="waypoints-hint">Les nuits ne peuvent être passées que dans les villes étapes définies ci-dessus.</p>
+            </div>
+
+            <button type="submit" class="btn-primary btn-auto-submit">
+                <span aria-hidden="true">🚄</span> Trouver l'itinéraire optimal
+            </button>
+        </form>
         
         <div id="results" role="region" aria-live="polite" aria-label="Résultats de la recherche"></div>
     </main>
@@ -62,6 +103,7 @@
     <script src="./js/api.js"></script>
     <script src="./js/ui.js"></script>
     <script src="./js/map.js"></script>
+    <script src="./js/autoPlanner.js"></script>
     <script src="./js/app.js"></script>
 </body>
 </html>

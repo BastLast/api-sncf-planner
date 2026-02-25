@@ -29,6 +29,38 @@
   // Desktop: initialize map immediately since panel is always visible
   ensureMapInit();
 
+  // ── Mode tab switching ──
+  const modeTabs = document.querySelectorAll('.mode-tab');
+  const searchForm = document.getElementById('searchForm');
+  const autoForm = document.getElementById('autoForm');
+
+  modeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const mode = tab.dataset.mode;
+      modeTabs.forEach(t => {
+        t.classList.toggle('active', t === tab);
+        t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+      });
+      // Show/hide forms
+      searchForm.style.display = mode === 'manual' ? '' : 'none';
+      autoForm.style.display = mode === 'auto' ? '' : 'none';
+      // Clear results when switching modes
+      resultsDiv.innerHTML = '';
+      // Reset wide view
+      const mainContainer = document.querySelector('.container');
+      if (mainContainer) mainContainer.classList.remove('wide-view');
+    });
+  });
+
+  // Initialize Auto Planner
+  if (window.AutoPlanner) {
+    window.AutoPlanner.init(resultsDiv, () => {
+      // onReset callback: restore container width
+      const mainContainer = document.querySelector('.container');
+      if (mainContainer) mainContainer.classList.remove('wide-view');
+    });
+  }
+
   // ── Helper: update map with search results ──
   async function updateMapWithDestinations(origin, trainsByDestination) {
     if (isMobile()) return;

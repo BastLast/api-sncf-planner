@@ -945,3 +945,55 @@ input:focus {
         max-width: 200px;
     }
 }
+
+/* ── Map panel ── */
+.map-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 420px;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.12);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Desktop: toggle button hidden, panel always visible */
+.map-toggle-btn {
+    display: none;
+}
+
+.train-map {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Desktop: always shrink main container for the map */
+.container {
+    margin-right: 430px;
+    transition: margin-right 0.3s ease;
+}
+
+/* Dark mode map */
+@media (prefers-color-scheme: dark) {
+    .map-panel {
+        background: #1e1e2e;
+        box-shadow: -4px 0 16px rgba(0,0,0,0.4);
+    }
+    .train-map {
+        filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+    }
+}
+
+/* Mobile: hide map completely */
+@media (max-width: 768px) {
+    .map-panel {
+        display: none;
+    }
+    .container {
+        margin-right: 0;
+    }
+}
+

@@ -4,11 +4,61 @@
   const { fetchTrains, fetchStations } = window.Api;
   const { parseDateTime, formatDate, formatDateTime, normalizeStationForApi, addDaysToDate, dateToDateStr } = window.Utils;
   const { renderTrainItem, renderItinerarySegments, createItineraryElement, showLoading, showError, showResultsHeader, renderResetButton, renderDateChangeButtons, renderCitySelector } = window.UI;
+  const { initMap, loadAllStationCoords, showDestinations, showItinerary: showMapItinerary } = window.TrainMap;
 
   const form = document.getElementById('searchForm');
   const resultsDiv = document.getElementById('results');
   const stationInput = document.getElementById('city');
   const stationsDatalist = document.getElementById('stations');
+
+  // ── Map panel toggle ──
+  const mapPanel = document.getElementById('map-panel');
+  let mapInitialized = false;
+
+  // Only initialize map on desktop (panel visible)
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
+  function ensureMapInit() {
+    if (mapInitialized || isMobile()) return;
+    initMap('train-map');
+    mapInitialized = true;
+  }
+
+  // Desktop: initialize map immediately since panel is always visible
+  ensureMapInit();
+
+  // ── Helper: update map with search results ──
+  async function updateMapWithDestinations(origin, trainsByDestination) {
+    if (isMobile()) return;
+    ensureMapInit();
+    const destinations = Object.keys(trainsByDestination).map(name => ({
+      name,
+      trainCount: trainsByDestination[name].length
+    }));
+    await showDestinations(origin, destinations, (destName) => {
+      // Scroll to destination in sidebar
+      const destSections = document.querySelectorAll('.destination-section');
+      destSections.forEach(section => {
+        if (section.textContent.includes(destName)) {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  }
+
+  // ── Helper: update map with itinerary + available connections ──
+  async function updateMapWithItinerary(parcours, trainsByDestination) {
+    if (isMobile()) return;
+    ensureMapInit();
+    const availableDestinations = trainsByDestination
+      ? Object.keys(trainsByDestination).map(name => ({ name, trainCount: trainsByDestination[name].length }))
+      : [];
+    if (mapInitialized) {
+      await showMapItinerary(parcours, availableDestinations);
+    }
+  }
 
   // Suppression de la fonction hydrateStations dupliquée - utilisation de la version simplifiée plus bas
 
@@ -161,6 +211,9 @@
       stationInput.placeholder = "Tapez une gare (auto-complétion)…";
       stationInput.disabled = false;
     }, 100);
+    
+    // Pré-charger les coordonnées de gares en arrière-plan pour la carte
+    loadAllStationCoords().catch(() => {});
   }
 
   // Initialisation au chargement de la page
@@ -246,6 +299,9 @@
     if (mainContainer) {
       mainContainer.classList.add('wide-view');
     }
+
+    // Update map with destinations
+    updateMapWithDestinations(origin, trainsByDestination);
   }
 
   // Nouvelle fonction pour afficher les trains disponibles avec gestion des changements de date et navigation par ville
@@ -274,6 +330,9 @@
           showAvailableTrains(station, newDate, newAfterDateTime, parcours, containers);
         });
         listContainer.appendChild(dateChangeButtons);
+
+        // Update map with itinerary only (no available destinations)
+        updateMapWithItinerary(parcours, null);
       } else {
         // Grouper les trains par destination comme dans la recherche initiale
         const trainsByDestination = nextTrains.reduce((groups, train) => {
@@ -306,6 +365,9 @@
           showAvailableTrains(station, newDate, newAfterDateTime, parcours, containers);
         });
         listContainer.appendChild(dateChangeButtons);
+
+        // Update map with itinerary + available destinations
+        updateMapWithItinerary(parcours, trainsByDestination);
       }
       
       // Ajouter le sélecteur de ville après les trains (ou après le message d'absence de trains)

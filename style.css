@@ -1218,6 +1218,16 @@ input:focus {
     color: #1f2937;
 }
 
+/* Transfer to manual button */
+.btn-transfer {
+    display: block;
+    width: 100%;
+    margin: 16px 0;
+    padding: 12px 20px;
+    font-size: 15px;
+    text-align: center;
+}
+
 /* Partial results */
 .partial-results {
     margin-bottom: 20px;

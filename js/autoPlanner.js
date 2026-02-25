@@ -363,9 +363,54 @@ window.AutoPlanner = (function () {
     // Itinerary segments (reuse existing renderer)
     container.appendChild(renderItinerarySegments(segments));
 
+    // Transfer to manual mode button
+    const transferBtn = document.createElement('button');
+    transferBtn.type = 'button';
+    transferBtn.className = 'btn-secondary btn-transfer';
+    transferBtn.textContent = '✏️ Modifier dans la recherche manuelle';
+    transferBtn.addEventListener('click', () => {
+      transferToManual(segments);
+    });
+    container.appendChild(transferBtn);
+
     // Update map if available
     if (window.TrainMap && typeof window.TrainMap.showItinerary === 'function') {
       window.TrainMap.showItinerary(segments, []).catch(() => {});
+    }
+  }
+
+  /** Transfer auto itinerary segments to the manual mode for editing */
+  function transferToManual(segments) {
+    if (!segments.length) return;
+
+    // Switch to manual tab
+    const modeTabs = document.querySelectorAll('.mode-tab');
+    const searchForm = document.getElementById('searchForm');
+    const autoForm = document.getElementById('autoForm');
+
+    modeTabs.forEach((t) => {
+      const isManual = t.dataset.mode === 'manual';
+      t.classList.toggle('active', isManual);
+      t.setAttribute('aria-selected', isManual ? 'true' : 'false');
+    });
+    searchForm.style.display = 'none'; // keep hidden, manual itinerary takes over
+    autoForm.style.display = 'none';
+
+    // Use the exposed showItinerary function from app.js
+    // showItinerary(departVille, departDate, train, parcours) adds one segment and shows connections.
+    // We pass all segments except the last as parcours, and the last segment as the new train.
+    const lastSeg = segments[segments.length - 1];
+    const previousSegments = segments.slice(0, -1);
+    const lastTrain = {
+      train_no: lastSeg.train.numero,
+      destination: lastSeg.arrivee,
+      heure_depart: lastSeg.train.heure,
+      heure_arrivee: lastSeg.arriveeDateTime.toTimeString().slice(0, 5),
+    };
+    const lastDateStr = dateToDateStr(lastSeg.departDateTime);
+
+    if (typeof window.showItinerary === 'function') {
+      window.showItinerary(lastSeg.depart, lastDateStr, lastTrain, previousSegments);
     }
   }
 

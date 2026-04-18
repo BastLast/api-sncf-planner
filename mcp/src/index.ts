@@ -967,51 +967,295 @@ Example: find_best_trip(origin="lyon", destination="montpellier", earliest_depar
   }
 );
 
+// Tool 5: Explore reachable destinations from a city
+server.tool(
+  "explore_destinations",
+  `DISCOVERY tool: "Where can I go from here?"
+
+Shows ALL cities reachable by TGVmax from a given origin city on a given date.
+Results are grouped by destination city, sorted by earliest arrival.
+
+USE THIS TOOL when:
+- The user is flexible about destination and wants to explore options
+- You need to know what's reachable from a city at a certain time
+- Planning multi-city itineraries and need to discover connections
+
+Example: explore_destinations(origin="lyon", date="2026-05-16", min_departure_time="17:00")
+→ Lists every city reachable from Lyon on May 16th, departing after 17h.`,
+  {
+    origin: z.string().describe("Departure city (e.g., 'lyon', 'paris')"),
+    date: z.string().describe("Date in YYYY-MM-DD format"),
+    min_departure_time: z.string().optional().describe("Earliest departure time HH:MM (e.g., '17:00')"),
+    max_arrival_time: z.string().optional().describe("Latest arrival time HH:MM (e.g., '23:00')"),
+  },
+  async ({ origin, date, min_departure_time, max_arrival_time }) => {
+    try {
+      const originStations = await resolveAllStations(origin, date);
+      if (originStations.length === 0) {
+        return { content: [{ type: "text", text: `Could not resolve origin "${origin}". Use list_stations to see available stations.` }], isError: true };
+      }
+
+      // Search all trains from all origin stations (no destination filter)
+      const allTrains: Train[] = [];
+      const searches: Promise<void>[] = [];
+      for (const o of originStations) {
+        searches.push(
+          fetchTrains({ date, origin: o }).then((trains) => { allTrains.push(...trains); }).catch(() => {})
+        );
+      }
+      await Promise.all(searches);
+
+      // Dedupe
+      const seen = new Set<string>();
+      let trains: Train[] = [];
+      for (const t of allTrains) {
+        const key = `${t.date}|${t.origine}|${t.destination}|${t.train_no}|${t.heure_depart}`;
+        if (!seen.has(key)) { seen.add(key); trains.push(t); }
+      }
+
+      // Apply time filters
+      if (min_departure_time) {
+        trains = trains.filter((t) => t.heure_depart >= min_departure_time);
+      }
+      if (max_arrival_time) {
+        trains = trains.filter((t) => t.heure_arrivee && t.heure_arrivee <= max_arrival_time);
+      }
+
+      if (trains.length === 0) {
+        let text = `No TGVmax trains from ${originStations.join(" / ")} on ${date}`;
+        if (min_departure_time) text += ` after ${min_departure_time}`;
+        if (max_arrival_time) text += ` arriving by ${max_arrival_time}`;
+        return { content: [{ type: "text", text: text + "." }] };
+      }
+
+      // Group by destination city (normalize station variants to city)
+      const byDest: Record<string, Train[]> = {};
+      for (const t of trains) {
+        const city = t.destination.replace(/ \(intramuros\)$/, "").replace(/ (ST |SAINT |SUD DE |CENTRE|TGV|VILLE|MATABIAU|CHATEAUCREUX|PART DIEU|PERRACHE).*/, "");
+        const key = t.destination; // Keep exact station name for precision
+        if (!byDest[key]) byDest[key] = [];
+        byDest[key].push(t);
+      }
+
+      // Sort destinations by earliest departure
+      const sortedDests = Object.entries(byDest).sort(([, a], [, b]) => {
+        const aMin = a.reduce((min, t) => t.heure_depart < min ? t.heure_depart : min, "99:99");
+        const bMin = b.reduce((min, t) => t.heure_depart < min ? t.heure_depart : min, "99:99");
+        return aMin.localeCompare(bMin);
+      });
+
+      let text = `# Destinations from ${originStations.join(" / ")} on ${date}`;
+      if (min_departure_time) text += ` (after ${min_departure_time})`;
+      if (max_arrival_time) text += ` (arriving by ${max_arrival_time})`;
+      text += `\n\n**${sortedDests.length} destinations, ${trains.length} trains**\n\n`;
+
+      for (const [dest, destTrains] of sortedDests) {
+        destTrains.sort((a, b) => a.heure_depart.localeCompare(b.heure_depart));
+        const first = destTrains[0];
+        const dur = first.heure_arrivee ? formatDuration(`2000-01-01T${first.heure_depart}`, `2000-01-01T${first.heure_arrivee}`) : "?";
+        text += `• **${dest}** — ${destTrains.length} train(s), earliest ${first.heure_depart}→${first.heure_arrivee || "?"} (~${dur})`;
+        if (destTrains.length > 1) {
+          const last = destTrains[destTrains.length - 1];
+          text += `, latest depart ${last.heure_depart}`;
+        }
+        text += "\n";
+      }
+
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true };
+    }
+  }
+);
+
+// Tool 6: Check route feasibility with time constraints
+server.tool(
+  "check_feasibility",
+  `VALIDATION tool: "Can I get from A to B within these time constraints?"
+
+Checks if a route is possible (direct trains AND connections) and returns the best option.
+Gives a clear YES/NO answer with timing details.
+
+USE THIS TOOL when:
+- You need to verify that a leg of a trip is doable
+- The user has a time constraint (must arrive by X, can't depart before Y)
+- Validating multi-city plans leg by leg
+
+Example: check_feasibility(origin="montpellier", destination="lyon", date="2026-05-18", must_arrive_by="10:00")
+→ Checks if you can get from Montpellier to Lyon by 10:00 on May 18th.`,
+  {
+    origin: z.string().describe("Departure city"),
+    destination: z.string().describe("Arrival city"),
+    date: z.string().describe("Date in YYYY-MM-DD format"),
+    must_depart_after: z.string().optional().describe("Earliest departure time HH:MM"),
+    must_arrive_by: z.string().optional().describe("Latest arrival time HH:MM"),
+  },
+  async ({ origin, destination, date, must_depart_after, must_arrive_by }) => {
+    try {
+      const originStations = await resolveAllStations(origin, date);
+      const destStations = await resolveAllStations(destination, date);
+
+      if (originStations.length === 0) {
+        return { content: [{ type: "text", text: `Could not resolve origin "${origin}".` }], isError: true };
+      }
+      if (destStations.length === 0) {
+        return { content: [{ type: "text", text: `Could not resolve destination "${destination}".` }], isError: true };
+      }
+
+      // Search ALL direct trains (all station combos)
+      const allTrains: (Train & { fromStation: string; toStation: string })[] = [];
+      const searches: Promise<void>[] = [];
+
+      for (const o of originStations) {
+        for (const d of destStations) {
+          searches.push(
+            fetchTrains({ date, origin: o, destination: d }).then((trains) => {
+              for (const t of trains) allTrains.push({ ...t, fromStation: o, toStation: d });
+            }).catch(() => {})
+          );
+        }
+      }
+      await Promise.all(searches);
+
+      // Apply time constraints
+      let filtered = allTrains;
+      if (must_depart_after) {
+        filtered = filtered.filter((t) => t.heure_depart >= must_depart_after);
+      }
+      if (must_arrive_by) {
+        filtered = filtered.filter((t) => t.heure_arrivee && t.heure_arrivee <= must_arrive_by);
+      }
+      filtered.sort((a, b) => a.heure_depart.localeCompare(b.heure_depart));
+
+      let text = "";
+
+      if (filtered.length > 0) {
+        text += `## ✅ YES — Direct train${filtered.length > 1 ? "s" : ""} available\n`;
+        text += `${origin} → ${destination} on ${date}`;
+        if (must_depart_after) text += ` (depart after ${must_depart_after})`;
+        if (must_arrive_by) text += ` (arrive by ${must_arrive_by})`;
+        text += "\n\n";
+
+        // Show best option first (if must_arrive_by: latest departure; if must_depart_after: earliest departure)
+        const best = must_arrive_by
+          ? filtered.reduce((latest, t) => t.heure_depart > latest.heure_depart ? t : latest)
+          : filtered[0];
+
+        const bestDur = best.heure_arrivee ? formatDuration(`2000-01-01T${best.heure_depart}`, `2000-01-01T${best.heure_arrivee}`) : "?";
+        text += `**Best option:** ${best.heure_depart}→${best.heure_arrivee} | ${best.fromStation}→${best.toStation} | Train ${best.train_no} (~${bestDur})\n\n`;
+
+        if (filtered.length > 1) {
+          text += `All ${filtered.length} options:\n`;
+          for (const t of filtered.slice(0, 10)) {
+            const dur = t.heure_arrivee ? formatDuration(`2000-01-01T${t.heure_depart}`, `2000-01-01T${t.heure_arrivee}`) : "?";
+            text += `- ${t.heure_depart}→${t.heure_arrivee} | ${t.fromStation}→${t.toStation} | Train ${t.train_no} (~${dur})\n`;
+          }
+        }
+        return { content: [{ type: "text", text }] };
+      }
+
+      // No direct trains — try connections via plan_itinerary
+      text += `## ⚠️ No direct trains\n`;
+      text += `${origin} → ${destination} on ${date}`;
+      if (must_depart_after) text += ` (depart after ${must_depart_after})`;
+      if (must_arrive_by) text += ` (arrive by ${must_arrive_by})`;
+      text += "\n\nSearching connections...\n\n";
+
+      let foundConnection = false;
+      for (const o of originStations) {
+        for (const d of destStations) {
+          const result = await planItinerary({ departure: o, arrival: d, start_date: date });
+          if (result.success && result.segments.length > 0) {
+            const firstSeg = result.segments[0];
+            const lastSeg = result.segments[result.segments.length - 1];
+
+            // Check constraints on the connection route
+            if (must_depart_after && firstSeg.heure_depart < must_depart_after) continue;
+            if (must_arrive_by && lastSeg.heure_arrivee > must_arrive_by) continue;
+
+            foundConnection = true;
+            const totalDur = formatDuration(firstSeg.departure_datetime, lastSeg.arrival_datetime);
+            text += `### ✅ Connection found: ${o} → ${d} (~${totalDur})\n`;
+            for (const seg of result.segments) {
+              text += `- ${seg.depart} → ${seg.arrivee} | ${seg.date} ${seg.heure_depart}→${seg.heure_arrivee} | Train ${seg.train_no}\n`;
+            }
+            text += "\n";
+          }
+        }
+      }
+
+      if (!foundConnection) {
+        text += `## ❌ NO — No route found (direct or connections)\n`;
+        text += `Cannot get from ${origin} to ${destination} on ${date} within the given constraints.\n`;
+
+        // Show what IS available without time constraints as a hint
+        if (allTrains.length > 0) {
+          text += `\nDirect trains exist but don't meet your time constraints:\n`;
+          for (const t of allTrains.slice(0, 5)) {
+            text += `- ${t.heure_depart}→${t.heure_arrivee} (Train ${t.train_no})\n`;
+          }
+        }
+      }
+
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true };
+    }
+  }
+);
+
 // ── MCP Prompt: Travel planning guide ──
 
 server.prompt(
   "plan_trip",
-  "Step-by-step guide for planning a TGVmax train trip. Use this when a user asks to find trains or plan a trip.",
+  "Comprehensive guide for planning TGVmax train trips. Use this when a user asks to find trains or plan any trip.",
   {
-    origin: z.string().describe("Departure city (e.g., 'lyon')"),
-    destination: z.string().describe("Destination city (e.g., 'montpellier')"),
-    outbound_date: z.string().describe("Outbound date YYYY-MM-DD"),
-    return_date: z.string().optional().describe("Return date YYYY-MM-DD (if round trip)"),
-    earliest_departure: z.string().optional().describe("Earliest departure time HH:MM (e.g., '17:00')"),
-    latest_return: z.string().optional().describe("Latest return arrival time HH:MM (e.g., '09:00')"),
+    user_request: z.string().describe("What the user wants (e.g., 'weekend in montpellier from lyon')"),
   },
-  ({ origin, destination, outbound_date, return_date, earliest_departure, latest_return }) => ({
+  ({ user_request }) => ({
     messages: [{
       role: "user",
       content: {
         type: "text",
-        text: `You are helping plan a TGVmax train trip. Follow these steps EXACTLY:
+        text: `You are helping plan train trips using the TGVmax pass (free travel on eligible SNCF trains).
 
-## Context
-- TGVmax is a French subscription that allows free travel on eligible trains. This tool searches ONLY TGVmax-eligible trains.
-- Origin: ${origin}
-- Destination: ${destination}
-- Outbound date: ${outbound_date}${earliest_departure ? ` (depart after ${earliest_departure})` : ""}
-- ${return_date ? `Return date: ${return_date}${latest_return ? ` (arrive before ${latest_return})` : ""}` : "One-way trip"}
+## User request
+${user_request}
 
-## Step 1: Search outbound trains
-Call search_trains with date="${outbound_date}", origin="${origin}", destination="${destination}".
-If results found, note all trains${earliest_departure ? ` departing after ${earliest_departure}` : ""}.
-If NO results: call plan_itinerary(departure="${origin}", arrival="${destination}", start_date="${outbound_date}") to find connections.
+## Available tools — pick the RIGHT one:
 
-## Step 2: Search return trains
-${return_date ? `Call search_trains with date="${return_date}", origin="${destination}", destination="${origin}".
-If results found, note all trains${latest_return ? ` arriving before ${latest_return}` : ""}.
-If NO results: call plan_itinerary(departure="${destination}", arrival="${origin}", start_date="${return_date}") to find connections.` : "N/A - one-way trip."}
+| Tool | When to use |
+|------|-------------|
+| **find_best_trip** | User wants a round trip A↔B, maximizing time at destination. ONE call does everything. |
+| **explore_destinations** | User is flexible about WHERE to go. Shows all reachable cities from an origin. |
+| **check_feasibility** | Need to verify: "Can I get from A to B by time X?" Clear YES/NO answer. |
+| **search_trains** | Need raw train listings between two specific cities on a specific date. |
+| **plan_itinerary** | Need to find a route with connections (when no direct trains exist). |
 
-## Step 3: Present the best options
-${return_date ? `To maximize time at ${destination}:
-- Pick the LATEST outbound that still departs ${earliest_departure ? `after ${earliest_departure}` : "on time"}
-- Actually no — pick the EARLIEST outbound to arrive sooner
-- Pick the LATEST return${latest_return ? ` that arrives before ${latest_return}` : ""}
-- Calculate total hours at ${destination}: return departure time - outbound arrival time` : "Pick the best train based on user preferences."}
+## Decision tree:
 
-Present results in a clear table or list format.`,
+1. Does the user have a specific destination?
+   - YES → Does the user want a round trip?
+     - YES → Use **find_best_trip** (single call, returns best combo)
+     - NO → Use **check_feasibility** to verify the one-way leg
+   - NO → Use **explore_destinations** to discover options
+
+2. Does the user have time constraints (must arrive by X, can't leave before Y)?
+   - YES → Use **check_feasibility** for each constrained leg
+
+3. Multi-city trip (A→B→C→A)?
+   - Call **check_feasibility** for EACH leg separately
+   - Verify each leg is doable before presenting the plan
+
+## IMPORTANT rules:
+- NEVER give up after one failed search — always try:
+  1. Different dates (adjacent days)
+  2. Connections (plan_itinerary)
+  3. Alternative cities (explore_destinations)
+- Station names are auto-resolved. "lyon" → "LYON (intramuros)", "montpellier" → all Montpellier stations.
+- TGVmax availability changes daily. No trains today ≠ no trains tomorrow.
+- Always present timing clearly: departure time, arrival time, total travel duration, and time at destination.
+- When the user has both strict and flexible constraints, validate strict constraints FIRST with check_feasibility, then optimize flexible ones.`,
       },
     }],
   })

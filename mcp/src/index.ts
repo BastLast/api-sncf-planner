@@ -12,6 +12,7 @@ const DEFAULT_LIMIT = 90;
 const MAX_PAGES = 6;
 
 // Common station aliases → exact API names
+// Cities with multiple stations list ALL variants
 const STATION_ALIASES: Record<string, string> = {
   "PARIS": "PARIS (intramuros)",
   "LYON": "LYON (intramuros)",
@@ -35,6 +36,15 @@ const STATION_ALIASES: Record<string, string> = {
   "AIX EN PROVENCE": "AIX EN PROVENCE TGV",
   "SAINT ETIENNE": "SAINT ETIENNE CHATEAUCREUX",
   "ST ETIENNE": "SAINT ETIENNE CHATEAUCREUX",
+};
+
+// Cities with multiple TGVmax stations — search ALL variants
+const CITY_STATIONS: Record<string, string[]> = {
+  "MONTPELLIER": ["MONTPELLIER SAINT ROCH", "MONTPELLIER SUD DE FRANCE"],
+  "NIMES": ["NIMES CENTRE", "NIMES PONT DU GARD"],
+  "AVIGNON": ["AVIGNON TGV", "AVIGNON CENTRE"],
+  "AIX": ["AIX EN PROVENCE TGV"],
+  "VALENCE": ["VALENCE TGV AUVERGNE RHONE ALPES"],
 };
 
 // Cache for station list (avoid repeated API calls)
@@ -217,6 +227,35 @@ async function getCachedStations(date?: string): Promise<string[]> {
   const stations = await fetchStations(date);
   stationCache = { stations, date: date ?? null, fetchedAt: now };
   return stations;
+}
+
+/**
+ * Resolve a city name to ALL possible station variants.
+ * E.g., "montpellier" → ["MONTPELLIER SAINT ROCH", "MONTPELLIER SUD DE FRANCE"]
+ */
+async function resolveAllStations(input: string, date?: string): Promise<string[]> {
+  const upper = input.toUpperCase().trim();
+
+  // Check if city has known multiple stations
+  const cityVariants = CITY_STATIONS[upper];
+  if (cityVariants) {
+    return cityVariants;
+  }
+
+  // For aliased cities, check if the base city name has variants
+  for (const [city, variants] of Object.entries(CITY_STATIONS)) {
+    if (upper.startsWith(city) || STATION_ALIASES[upper]?.startsWith(city)) {
+      return variants;
+    }
+  }
+
+  // Otherwise, resolve to single station
+  try {
+    const [resolved] = await resolveStation(input, date);
+    return [resolved];
+  } catch {
+    return [];
+  }
 }
 
 // ── Auto planner ──
@@ -489,32 +528,59 @@ TYPICAL WORKFLOW for finding a trip:
   },
   async ({ date, origin, destination }) => {
     try {
-      // Auto-resolve station names
-      let resolvedOrigin = origin;
-      let resolvedDest = destination;
+      // Auto-resolve station names to ALL variants for the city
       const notes: string[] = [];
+      const originStations: string[] = [];
+      const destStations: string[] = [];
 
       if (origin) {
-        const [resolved, exact] = await resolveStation(origin, date);
-        resolvedOrigin = resolved;
-        if (!exact && origin.toUpperCase().trim() !== resolved) {
-          notes.push(`Origin "${origin}" resolved to "${resolved}"`);
+        const resolved = await resolveAllStations(origin, date);
+        originStations.push(...resolved);
+        if (resolved.length > 0 && origin.toUpperCase().trim() !== resolved[0]) {
+          notes.push(`Origin "${origin}" → ${resolved.join(", ")}`);
         }
       }
       if (destination) {
-        const [resolved, exact] = await resolveStation(destination, date);
-        resolvedDest = resolved;
-        if (!exact && destination.toUpperCase().trim() !== resolved) {
-          notes.push(`Destination "${destination}" resolved to "${resolved}"`);
+        const resolved = await resolveAllStations(destination, date);
+        destStations.push(...resolved);
+        if (resolved.length > 0 && destination.toUpperCase().trim() !== resolved[0]) {
+          notes.push(`Destination "${destination}" → ${resolved.join(", ")}`);
         }
       }
 
-      const trains = await fetchTrains({ date, origin: resolvedOrigin, destination: resolvedDest });
+      // Search ALL combinations of origin/destination stations
+      const allTrains: Train[] = [];
+      const searches: Promise<void>[] = [];
+      const oList = originStations.length > 0 ? originStations : [undefined];
+      const dList = destStations.length > 0 ? destStations : [undefined];
+
+      for (const o of oList) {
+        for (const d of dList) {
+          searches.push(
+            fetchTrains({ date, origin: o, destination: d }).then((trains) => {
+              allTrains.push(...trains);
+            }).catch(() => { /* skip failed */ })
+          );
+        }
+      }
+      await Promise.all(searches);
+
+      // Dedupe merged results
+      const seen = new Set<string>();
+      const trains: Train[] = [];
+      for (const t of allTrains) {
+        const key = `${t.date}|${t.origine}|${t.destination}|${t.train_no}|${t.heure_depart}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          trains.push(t);
+        }
+      }
+      trains.sort((a, b) => a.heure_depart.localeCompare(b.heure_depart));
 
       if (trains.length === 0) {
         let text = `No TGVmax trains found for date: ${date}`;
-        if (resolvedOrigin) text += `, from: ${resolvedOrigin}`;
-        if (resolvedDest) text += `, to: ${resolvedDest}`;
+        if (originStations.length > 0) text += `, from: ${originStations.join(" / ")}`;
+        if (destStations.length > 0) text += `, to: ${destStations.join(" / ")}`;
         text += ".";
         if (notes.length > 0) text += `\n(${notes.join("; ")})`;
         text += "\n\nTIPS: Try adjacent dates, or use plan_itinerary to find routes with connections. Also try searching without destination to see all available trains from the origin.";
@@ -530,8 +596,8 @@ TYPICAL WORKFLOW for finding a trip:
       }
 
       let text = `Found ${trains.length} TGVmax train(s) on ${date}`;
-      if (resolvedOrigin) text += ` from ${resolvedOrigin}`;
-      if (resolvedDest) text += ` to ${resolvedDest}`;
+      if (originStations.length > 0) text += ` from ${originStations.join(" / ")}`;
+      if (destStations.length > 0) text += ` to ${destStations.join(" / ")}`;
       text += ":\n";
       if (notes.length > 0) text += `(${notes.join("; ")})\n`;
       text += "\n";
@@ -661,6 +727,238 @@ STRATEGY for "maximize time at destination":
       const last = result.segments[result.segments.length - 1];
       text += `**Total duration: ${formatDuration(first.departure_datetime, last.arrival_datetime)}**\n`;
       text += `**${first.depart} → ${last.arrivee}**\n`;
+
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true };
+    }
+  }
+);
+
+// Tool 4: Find best trip (high-level, all-in-one)
+server.tool(
+  "find_best_trip",
+  `ALL-IN-ONE trip optimizer. This is the EASIEST tool to use — give it your constraints and it does everything automatically.
+
+It searches ALL possible combinations of:
+- All station variants for origin and destination cities (e.g., both MONTPELLIER SAINT ROCH and MONTPELLIER SUD DE FRANCE)
+- Direct trains AND connections through intermediate cities
+- Multiple dates within your availability window
+
+USE THIS TOOL when the user wants to:
+- Maximize time at a destination
+- Find the best round trip within time constraints
+- Plan a trip with flexible dates
+
+Example: find_best_trip(origin="lyon", destination="montpellier", earliest_departure="2026-05-13T17:00", latest_return="2026-05-18T09:00")
+→ Automatically finds the best outbound+return combo that maximizes time in Montpellier.`,
+  {
+    origin: z.string().describe("Departure city (e.g., 'lyon', 'paris')"),
+    destination: z.string().describe("Destination city (e.g., 'montpellier', 'marseille')"),
+    earliest_departure: z.string().describe("Earliest possible departure datetime ISO format (e.g., '2026-05-13T17:00')"),
+    latest_return: z.string().optional().describe("Latest acceptable return arrival datetime ISO format (e.g., '2026-05-18T09:00'). Omit for one-way."),
+  },
+  async ({ origin, destination, earliest_departure, latest_return }) => {
+    try {
+      const originStations = await resolveAllStations(origin);
+      const destStations = await resolveAllStations(destination);
+
+      if (originStations.length === 0) {
+        return { content: [{ type: "text", text: `Could not resolve origin city "${origin}". Use list_stations to see available stations.` }], isError: true };
+      }
+      if (destStations.length === 0) {
+        return { content: [{ type: "text", text: `Could not resolve destination city "${destination}". Use list_stations to see available stations.` }], isError: true };
+      }
+
+      const depDT = new Date(earliest_departure);
+      const retDT = latest_return ? new Date(latest_return) : null;
+
+      // Generate all dates to search for outbound
+      const outboundDates: string[] = [];
+      const startDate = dateToDateStr(depDT);
+      if (retDT) {
+        // Search outbound dates from departure date to 1 day before return
+        const maxOutDays = Math.min(Math.ceil((retDT.getTime() - depDT.getTime()) / 86400000), 7);
+        for (let d = 0; d < maxOutDays; d++) {
+          outboundDates.push(d === 0 ? startDate : addDaysToDate(startDate, d));
+        }
+      } else {
+        // One-way: search 3 days
+        for (let d = 0; d < 3; d++) {
+          outboundDates.push(d === 0 ? startDate : addDaysToDate(startDate, d));
+        }
+      }
+
+      // Search ALL outbound options
+      interface TripOption {
+        origin: string;
+        destination: string;
+        train: Train;
+        date: string;
+        arrivalDT: Date;
+        departureDT: Date;
+      }
+
+      const outboundOptions: TripOption[] = [];
+      const outboundSearches: Promise<void>[] = [];
+
+      for (const orig of originStations) {
+        for (const dest of destStations) {
+          for (const date of outboundDates) {
+            outboundSearches.push(
+              fetchTrains({ date, origin: orig, destination: dest }).then((trains) => {
+                for (const t of trains) {
+                  const dDT = parseDateTime(date, t.heure_depart);
+                  if (dDT < depDT) continue; // Before earliest departure
+                  const aDT = parseDateTime(date, t.heure_arrivee || t.heure_depart);
+                  const arrDT = aDT <= dDT ? new Date(aDT.getTime() + 86400000) : aDT;
+                  outboundOptions.push({ origin: orig, destination: dest, train: t, date, arrivalDT: arrDT, departureDT: dDT });
+                }
+              }).catch(() => { /* skip failed searches */ })
+            );
+          }
+        }
+      }
+
+      await Promise.all(outboundSearches);
+
+      // Sort outbound by earliest arrival
+      outboundOptions.sort((a, b) => a.arrivalDT.getTime() - b.arrivalDT.getTime());
+
+      if (outboundOptions.length === 0) {
+        // Try plan_itinerary as fallback
+        let fallbackText = `No direct TGVmax trains found from ${originStations.join("/")} to ${destStations.join("/")} on ${outboundDates.join(", ")}.\n\n`;
+        fallbackText += "Trying connections via plan_itinerary...\n\n";
+
+        for (const orig of originStations) {
+          for (const dest of destStations) {
+            const result = await planItinerary({ departure: orig, arrival: dest, start_date: startDate });
+            if (result.success && result.segments.length > 0) {
+              fallbackText += `✅ Route found: ${orig} → ${dest} via connections:\n`;
+              for (const seg of result.segments) {
+                fallbackText += `  ${seg.depart} → ${seg.arrivee} | ${seg.date} ${seg.heure_depart}→${seg.heure_arrivee} | Train ${seg.train_no}\n`;
+              }
+              fallbackText += "\n";
+            }
+          }
+        }
+
+        if (fallbackText.includes("✅")) {
+          return { content: [{ type: "text", text: fallbackText }] };
+        }
+
+        return { content: [{ type: "text", text: `No TGVmax trains or connections found from ${origin} to ${destination} on dates ${outboundDates.join(", ")}. The TGVmax network may not cover this route on these dates.` }] };
+      }
+
+      // If one-way, just return the outbound options
+      if (!retDT) {
+        let text = `## Outbound options: ${origin} → ${destination}\n`;
+        text += `(Searched: ${originStations.join(", ")} → ${destStations.join(", ")})\n\n`;
+        const shown = outboundOptions.slice(0, 15);
+        for (const opt of shown) {
+          const dur = formatDuration(opt.departureDT.toISOString(), opt.arrivalDT.toISOString());
+          text += `- ${opt.date} ${opt.train.heure_depart}→${opt.train.heure_arrivee} | ${opt.origin}→${opt.destination} | Train ${opt.train.train_no} (${dur})\n`;
+        }
+        if (outboundOptions.length > 15) text += `\n... and ${outboundOptions.length - 15} more options.\n`;
+        return { content: [{ type: "text", text }] };
+      }
+
+      // Search ALL return options
+      const returnDates: string[] = [];
+      const retDateStr = dateToDateStr(retDT);
+      // Search from 2 days before return to return date
+      for (let d = -2; d <= 0; d++) {
+        const rd = d === 0 ? retDateStr : addDaysToDate(retDateStr, d);
+        if (new Date(rd) >= depDT) returnDates.push(rd);
+      }
+      if (returnDates.length === 0) returnDates.push(retDateStr);
+
+      const returnOptions: TripOption[] = [];
+      const returnSearches: Promise<void>[] = [];
+
+      for (const orig of destStations) {
+        for (const dest of originStations) {
+          for (const date of returnDates) {
+            returnSearches.push(
+              fetchTrains({ date, origin: orig, destination: dest }).then((trains) => {
+                for (const t of trains) {
+                  const dDT = parseDateTime(date, t.heure_depart);
+                  const aDT = parseDateTime(date, t.heure_arrivee || t.heure_depart);
+                  const arrDT = aDT <= dDT ? new Date(aDT.getTime() + 86400000) : aDT;
+                  if (arrDT > retDT) continue; // Arrives after latest return
+                  returnOptions.push({ origin: orig, destination: dest, train: t, date, arrivalDT: arrDT, departureDT: dDT });
+                }
+              }).catch(() => { /* skip */ })
+            );
+          }
+        }
+      }
+
+      await Promise.all(returnSearches);
+
+      // Sort return by latest departure (maximize time at destination)
+      returnOptions.sort((a, b) => b.departureDT.getTime() - a.departureDT.getTime());
+
+      // Find the BEST combo: earliest outbound arrival + latest return departure = max time at destination
+      let bestCombo: { outbound: TripOption; return_: TripOption; hoursAtDest: number } | null = null;
+
+      for (const out of outboundOptions.slice(0, 10)) {
+        for (const ret of returnOptions.slice(0, 10)) {
+          if (ret.departureDT <= out.arrivalDT) continue; // Return before arrival
+          const hoursAtDest = (ret.departureDT.getTime() - out.arrivalDT.getTime()) / 3600000;
+          if (!bestCombo || hoursAtDest > bestCombo.hoursAtDest) {
+            bestCombo = { outbound: out, return_: ret, hoursAtDest };
+          }
+        }
+      }
+
+      // Build response
+      let text = `# 🚄 Best trip: ${origin} → ${destination}\n`;
+      text += `Searched: ${originStations.join(", ")} ↔ ${destStations.join(", ")}\n`;
+      text += `Constraint: depart after ${earliest_departure}, return by ${latest_return}\n\n`;
+
+      if (bestCombo) {
+        const out = bestCombo.outbound;
+        const ret = bestCombo.return_;
+        const outDur = formatDuration(out.departureDT.toISOString(), out.arrivalDT.toISOString());
+        const retDur = formatDuration(ret.departureDT.toISOString(), ret.arrivalDT.toISOString());
+        const h = Math.floor(bestCombo.hoursAtDest);
+        const m = Math.round((bestCombo.hoursAtDest - h) * 60);
+
+        text += `## ⭐ RECOMMENDED (maximizes time at ${destination})\n\n`;
+        text += `### Outbound: ${out.origin} → ${out.destination}\n`;
+        text += `- ${out.date} | Depart ${out.train.heure_depart} → Arrive ${out.train.heure_arrivee} | Train ${out.train.train_no} (${outDur})\n\n`;
+        text += `### Return: ${ret.origin} → ${ret.destination}\n`;
+        text += `- ${ret.date} | Depart ${ret.train.heure_depart} → Arrive ${ret.train.heure_arrivee} | Train ${ret.train.train_no} (${retDur})\n\n`;
+        text += `### ⏱️ Time at ${destination}: ~${h}h${m > 0 ? m.toString().padStart(2, "0") : ""}\n`;
+        text += `(From ${out.train.heure_arrivee} on ${out.date} to ${ret.train.heure_depart} on ${ret.date})\n\n`;
+      }
+
+      // Also show alternatives
+      if (outboundOptions.length > 0) {
+        text += `## All outbound options (${outboundOptions.length} trains)\n`;
+        for (const opt of outboundOptions.slice(0, 8)) {
+          const dur = formatDuration(opt.departureDT.toISOString(), opt.arrivalDT.toISOString());
+          text += `- ${opt.date} ${opt.train.heure_depart}→${opt.train.heure_arrivee} | ${opt.origin}→${opt.destination} | Train ${opt.train.train_no} (${dur})\n`;
+        }
+        text += "\n";
+      }
+
+      if (returnOptions.length > 0) {
+        text += `## All return options (${returnOptions.length} trains)\n`;
+        for (const opt of returnOptions.slice(0, 8)) {
+          const dur = formatDuration(opt.departureDT.toISOString(), opt.arrivalDT.toISOString());
+          text += `- ${opt.date} ${opt.train.heure_depart}→${opt.train.heure_arrivee} | ${opt.origin}→${opt.destination} | Train ${opt.train.train_no} (${dur})\n`;
+        }
+        text += "\n";
+      }
+
+      if (!bestCombo) {
+        text += `⚠️ Could not find a valid round trip combo (outbound: ${outboundOptions.length} options, return: ${returnOptions.length} options).\n`;
+        if (returnOptions.length === 0) {
+          text += `No return trains found arriving before ${latest_return}. Try extending the return deadline, or use plan_itinerary to find connections.\n`;
+        }
+      }
 
       return { content: [{ type: "text", text }] };
     } catch (e) {

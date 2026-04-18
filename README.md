@@ -33,3 +33,44 @@ Le code construit des URLs du type:
 
 - Placez le contenu de `web/` à la racine de la branche `gh-pages` de votre repo, ou configurez Pages pour servir le dossier `web/`.
 
+## MCP Server
+
+Un serveur [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) est inclus dans `mcp/`, permettant à une IA d'utiliser les mêmes fonctionnalités que le site web.
+
+### Outils disponibles
+
+| Outil | Description |
+|-------|-------------|
+| `search_trains` | Rechercher les trains TGVmax disponibles par date, gare de départ et/ou d'arrivée |
+| `list_stations` | Lister toutes les gares avec des trains TGVmax disponibles |
+| `plan_itinerary` | Planifier automatiquement un itinéraire multi-étapes avec correspondances |
+
+### Installation
+
+```bash
+cd mcp
+pnpm install
+```
+
+### Configuration MCP (VS Code / Claude Desktop)
+
+Ajoutez dans votre config MCP :
+
+```json
+{
+  "mcpServers": {
+    "sncf-tgvmax": {
+      "command": "npx",
+      "args": ["tsx", "src/index.ts"],
+      "cwd": "<chemin-vers-ce-repo>/mcp"
+    }
+  }
+}
+```
+
+### Exemples d'utilisation
+
+- *"Quels trains TGVmax sont disponibles demain de Paris à Lyon ?"*
+- *"Liste-moi toutes les gares disponibles"*
+- *"Planifie un voyage de Toulouse à Paris en passant par Bordeaux avec 2 nuits sur place"*
+

@@ -11,6 +11,36 @@ const DATASET = "tgvmax";
 const DEFAULT_LIMIT = 90;
 const MAX_PAGES = 6;
 
+// Common station aliases → exact API names
+const STATION_ALIASES: Record<string, string> = {
+  "PARIS": "PARIS (intramuros)",
+  "LYON": "LYON (intramuros)",
+  "LYON PART DIEU": "LYON (intramuros)",
+  "LYON PART-DIEU": "LYON (intramuros)",
+  "LYON PERRACHE": "LYON (intramuros)",
+  "MARSEILLE": "MARSEILLE ST CHARLES",
+  "MONTPELLIER": "MONTPELLIER SAINT ROCH",
+  "MONTPELLIER SAINT-ROCH": "MONTPELLIER SAINT ROCH",
+  "MONTPELLIER ST ROCH": "MONTPELLIER SAINT ROCH",
+  "BORDEAUX": "BORDEAUX ST JEAN",
+  "BORDEAUX SAINT-JEAN": "BORDEAUX ST JEAN",
+  "TOULOUSE": "TOULOUSE MATABIAU",
+  "NANTES": "NANTES",
+  "STRASBOURG": "STRASBOURG",
+  "LILLE": "LILLE (intramuros)",
+  "RENNES": "RENNES",
+  "NICE": "NICE VILLE",
+  "AVIGNON": "AVIGNON TGV",
+  "AIX": "AIX EN PROVENCE TGV",
+  "AIX EN PROVENCE": "AIX EN PROVENCE TGV",
+  "SAINT ETIENNE": "SAINT ETIENNE CHATEAUCREUX",
+  "ST ETIENNE": "SAINT ETIENNE CHATEAUCREUX",
+};
+
+// Cache for station list (avoid repeated API calls)
+let stationCache: { stations: string[]; date: string | null; fetchedAt: number } | null = null;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 interface Train {
   date: string;
   origine: string;
@@ -113,6 +143,79 @@ async function fetchStations(date?: string): Promise<string[]> {
   }
 
   stations.sort((a, b) => a.localeCompare(b));
+  return stations;
+}
+
+/**
+ * Resolve a station name input to the exact API station name.
+ * Tries: exact match, alias lookup, substring match, fuzzy match.
+ * Returns [resolvedName, wasExact] or throws with suggestions.
+ */
+async function resolveStation(input: string, date?: string): Promise<[string, boolean]> {
+  const upper = input.toUpperCase().trim();
+
+  // 1. Check aliases first
+  if (STATION_ALIASES[upper]) {
+    return [STATION_ALIASES[upper], false];
+  }
+
+  // 2. Get station list (cached)
+  const stations = await getCachedStations(date);
+
+  // 3. Exact match
+  if (stations.includes(upper)) {
+    return [upper, true];
+  }
+
+  // 4. Substring match (input is contained in station name, or station name contains input)
+  const substringMatches = stations.filter((s) =>
+    s.includes(upper) || upper.includes(s)
+  );
+  if (substringMatches.length === 1) {
+    return [substringMatches[0], false];
+  }
+
+  // 5. Word-start match (each word in input matches the start of a word in station name)
+  const inputWords = upper.split(/\s+/);
+  const wordStartMatches = stations.filter((s) => {
+    const stationWords = s.split(/\s+/);
+    return inputWords.every((iw) =>
+      stationWords.some((sw) => sw.startsWith(iw))
+    );
+  });
+  if (wordStartMatches.length === 1) {
+    return [wordStartMatches[0], false];
+  }
+
+  // 6. If we have multiple matches, return the closest one (shortest name = most specific)
+  const allMatches = [...new Set([...substringMatches, ...wordStartMatches])];
+  if (allMatches.length > 0) {
+    allMatches.sort((a, b) => a.length - b.length);
+    return [allMatches[0], false];
+  }
+
+  // 7. No match found — build suggestion list
+  const suggestions = stations
+    .filter((s) => {
+      const words = upper.split(/\s+/);
+      return words.some((w) => w.length >= 3 && s.includes(w));
+    })
+    .slice(0, 5);
+
+  const suggestionText = suggestions.length > 0
+    ? `\nDid you mean: ${suggestions.join(", ")}?`
+    : "\nUse list_stations to see all available station names.";
+
+  throw new Error(`Station "${input}" not found in the TGVmax network.${suggestionText}`);
+}
+
+async function getCachedStations(date?: string): Promise<string[]> {
+  const now = Date.now();
+  if (stationCache && (now - stationCache.fetchedAt) < CACHE_TTL_MS && stationCache.date === (date ?? null)) {
+    return stationCache.stations;
+  }
+  const stations = await fetchStations(date);
+  stationCache = { stations, date: date ?? null, fetchedAt: now };
   return stations;
 }
 
@@ -364,20 +467,58 @@ const server = new McpServer({
 // Tool 1: Search trains
 server.tool(
   "search_trains",
-  "Search for available TGVmax trains (eligible for the TGVmax subscription card) on the SNCF network. Returns trains filtered by date, origin, and/or destination. Station names must be in UPPERCASE and match exactly (e.g., 'PARIS (intramuros)', 'LYON (intramuros)', 'TOULOUSE MATABIAU', 'BORDEAUX ST JEAN'). Use list_stations first if unsure of exact names.",
+  `Search for available TGVmax trains on the SNCF network.
+
+IMPORTANT:
+- This searches ONLY trains eligible for the TGVmax subscription (free travel pass). Not all SNCF trains.
+- Station names are auto-resolved: "lyon" → "LYON (intramuros)", "montpellier" → "MONTPELLIER ST ROCH", etc.
+- Date format: YYYY-MM-DD (e.g., "2026-05-14")
+- You MUST search one specific date at a time. To cover a range, call this tool multiple times.
+- If no results: try adjacent dates, or use plan_itinerary which searches connections through intermediate cities.
+- Common stations: PARIS (intramuros), LYON (intramuros), MARSEILLE ST CHARLES, MONTPELLIER SAINT ROCH, MONTPELLIER SUD DE FRANCE, TOULOUSE MATABIAU, BORDEAUX ST JEAN, NICE VILLE, AVIGNON TGV, STRASBOURG, NANTES, RENNES, LILLE (intramuros).
+
+TYPICAL WORKFLOW for finding a trip:
+1. Search outbound trains: search_trains(date="2026-05-14", origin="lyon", destination="montpellier")
+2. Search return trains: search_trains(date="2026-05-18", origin="montpellier", destination="lyon")
+3. If no direct results, try plan_itinerary which finds connections automatically.
+4. To maximize time at destination: pick the earliest outbound and latest return.`,
   {
-    date: z.string().describe("Date in YYYY-MM-DD format (e.g., '2025-08-25')"),
-    origin: z.string().optional().describe("Departure station name in UPPERCASE (e.g., 'PARIS (intramuros)')"),
-    destination: z.string().optional().describe("Arrival station name in UPPERCASE (e.g., 'LYON (intramuros)')"),
+    date: z.string().describe("Date in YYYY-MM-DD format (e.g., '2026-05-14')"),
+    origin: z.string().optional().describe("Departure station (auto-resolved, e.g., 'lyon', 'PARIS (intramuros)')"),
+    destination: z.string().optional().describe("Arrival station (auto-resolved, e.g., 'montpellier', 'MARSEILLE ST CHARLES')"),
   },
   async ({ date, origin, destination }) => {
     try {
-      const trains = await fetchTrains({ date, origin, destination });
+      // Auto-resolve station names
+      let resolvedOrigin = origin;
+      let resolvedDest = destination;
+      const notes: string[] = [];
+
+      if (origin) {
+        const [resolved, exact] = await resolveStation(origin, date);
+        resolvedOrigin = resolved;
+        if (!exact && origin.toUpperCase().trim() !== resolved) {
+          notes.push(`Origin "${origin}" resolved to "${resolved}"`);
+        }
+      }
+      if (destination) {
+        const [resolved, exact] = await resolveStation(destination, date);
+        resolvedDest = resolved;
+        if (!exact && destination.toUpperCase().trim() !== resolved) {
+          notes.push(`Destination "${destination}" resolved to "${resolved}"`);
+        }
+      }
+
+      const trains = await fetchTrains({ date, origin: resolvedOrigin, destination: resolvedDest });
 
       if (trains.length === 0) {
-        return {
-          content: [{ type: "text", text: `No TGVmax trains found for the given criteria (date: ${date}${origin ? `, from: ${origin}` : ""}${destination ? `, to: ${destination}` : ""}).` }],
-        };
+        let text = `No TGVmax trains found for date: ${date}`;
+        if (resolvedOrigin) text += `, from: ${resolvedOrigin}`;
+        if (resolvedDest) text += `, to: ${resolvedDest}`;
+        text += ".";
+        if (notes.length > 0) text += `\n(${notes.join("; ")})`;
+        text += "\n\nTIPS: Try adjacent dates, or use plan_itinerary to find routes with connections. Also try searching without destination to see all available trains from the origin.";
+        return { content: [{ type: "text", text }] };
       }
 
       // Group by destination for readability
@@ -389,9 +530,11 @@ server.tool(
       }
 
       let text = `Found ${trains.length} TGVmax train(s) on ${date}`;
-      if (origin) text += ` from ${origin}`;
-      if (destination) text += ` to ${destination}`;
-      text += ":\n\n";
+      if (resolvedOrigin) text += ` from ${resolvedOrigin}`;
+      if (resolvedDest) text += ` to ${resolvedDest}`;
+      text += ":\n";
+      if (notes.length > 0) text += `(${notes.join("; ")})\n`;
+      text += "\n";
 
       for (const [dest, destTrains] of Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))) {
         text += `## → ${dest} (${destTrains.length} train${destTrains.length > 1 ? "s" : ""})\n`;
@@ -412,7 +555,9 @@ server.tool(
 // Tool 2: List stations
 server.tool(
   "list_stations",
-  "List all SNCF stations that have TGVmax-eligible trains available. Optionally filter by a specific date to see only stations with trains on that day. Returns station names in the exact format needed for search_trains and plan_itinerary.",
+  `List all SNCF stations that have TGVmax-eligible trains. Returns exact station names needed for search_trains and plan_itinerary.
+
+Note: Station names in search_trains and plan_itinerary are auto-resolved, so you usually don't need to call this first. Use this tool only if you need to browse all available stations or verify a station name.`,
   {
     date: z.string().optional().describe("Optional date in YYYY-MM-DD format to filter stations with trains on that day"),
   },
@@ -433,19 +578,51 @@ server.tool(
 // Tool 3: Plan itinerary
 server.tool(
   "plan_itinerary",
-  "Automatically plan a multi-leg TGVmax itinerary. Finds the best combination of direct trains and connections (with 1 intermediate stop) to travel from departure to arrival, optionally through waypoints with overnight stays. Searches up to 5 days ahead per leg if no trains are found on the requested date. Station names must be in UPPERCASE.",
+  `Plan a multi-leg TGVmax itinerary with automatic connection finding.
+
+This is the BEST tool for finding routes between cities that may not have direct TGVmax trains. It:
+- Finds direct trains OR trains with 1 connection through intermediate cities
+- Searches up to 5 days ahead per leg if no trains on the requested date
+- Handles overnight stays at waypoints
+
+Station names are auto-resolved (e.g., "lyon" → "LYON (intramuros)").
+
+USAGE EXAMPLES:
+1. Simple A→B trip: plan_itinerary(departure="lyon", arrival="montpellier", start_date="2026-05-14")
+2. Round trip: Call twice — once for outbound, once for return.
+3. Multi-city: plan_itinerary(departure="lyon", arrival="nice", start_date="2026-05-14", waypoints=[{city:"montpellier", min_nights:2}])
+
+STRATEGY for "maximize time at destination":
+- For outbound: use plan_itinerary with earliest possible date/time
+- For return: search_trains on the return date and pick the LATEST departure that arrives before your deadline
+- Compare different dates to find the optimal combination`,
   {
-    departure: z.string().describe("Departure station in UPPERCASE (e.g., 'PARIS (intramuros)')"),
-    arrival: z.string().describe("Final arrival station in UPPERCASE (e.g., 'MARSEILLE ST CHARLES')"),
+    departure: z.string().describe("Departure station (auto-resolved, e.g., 'lyon')"),
+    arrival: z.string().describe("Final arrival station (auto-resolved, e.g., 'montpellier')"),
     start_date: z.string().describe("Start date in YYYY-MM-DD format"),
     waypoints: z.array(z.object({
-      city: z.string().describe("Waypoint station in UPPERCASE"),
+      city: z.string().describe("Waypoint station (auto-resolved)"),
       min_nights: z.number().optional().describe("Minimum nights to spend at this waypoint (default: 0)"),
     })).optional().describe("Optional intermediate stops with overnight stays"),
   },
   async ({ departure, arrival, start_date, waypoints }) => {
     try {
-      const result = await planItinerary({ departure, arrival, start_date, waypoints });
+      // Auto-resolve station names
+      const [resolvedDep] = await resolveStation(departure, start_date);
+      const [resolvedArr] = await resolveStation(arrival, start_date);
+      const resolvedWaypoints = waypoints ? await Promise.all(
+        waypoints.map(async (w) => {
+          const [resolved] = await resolveStation(w.city, start_date);
+          return { city: resolved, min_nights: w.min_nights };
+        })
+      ) : undefined;
+
+      const result = await planItinerary({
+        departure: resolvedDep,
+        arrival: resolvedArr,
+        start_date,
+        waypoints: resolvedWaypoints,
+      });
 
       if (!result.success) {
         let text = `Could not complete the itinerary.\nError: ${result.error}\n`;
@@ -490,6 +667,56 @@ server.tool(
       return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true };
     }
   }
+);
+
+// ── MCP Prompt: Travel planning guide ──
+
+server.prompt(
+  "plan_trip",
+  "Step-by-step guide for planning a TGVmax train trip. Use this when a user asks to find trains or plan a trip.",
+  {
+    origin: z.string().describe("Departure city (e.g., 'lyon')"),
+    destination: z.string().describe("Destination city (e.g., 'montpellier')"),
+    outbound_date: z.string().describe("Outbound date YYYY-MM-DD"),
+    return_date: z.string().optional().describe("Return date YYYY-MM-DD (if round trip)"),
+    earliest_departure: z.string().optional().describe("Earliest departure time HH:MM (e.g., '17:00')"),
+    latest_return: z.string().optional().describe("Latest return arrival time HH:MM (e.g., '09:00')"),
+  },
+  ({ origin, destination, outbound_date, return_date, earliest_departure, latest_return }) => ({
+    messages: [{
+      role: "user",
+      content: {
+        type: "text",
+        text: `You are helping plan a TGVmax train trip. Follow these steps EXACTLY:
+
+## Context
+- TGVmax is a French subscription that allows free travel on eligible trains. This tool searches ONLY TGVmax-eligible trains.
+- Origin: ${origin}
+- Destination: ${destination}
+- Outbound date: ${outbound_date}${earliest_departure ? ` (depart after ${earliest_departure})` : ""}
+- ${return_date ? `Return date: ${return_date}${latest_return ? ` (arrive before ${latest_return})` : ""}` : "One-way trip"}
+
+## Step 1: Search outbound trains
+Call search_trains with date="${outbound_date}", origin="${origin}", destination="${destination}".
+If results found, note all trains${earliest_departure ? ` departing after ${earliest_departure}` : ""}.
+If NO results: call plan_itinerary(departure="${origin}", arrival="${destination}", start_date="${outbound_date}") to find connections.
+
+## Step 2: Search return trains
+${return_date ? `Call search_trains with date="${return_date}", origin="${destination}", destination="${origin}".
+If results found, note all trains${latest_return ? ` arriving before ${latest_return}` : ""}.
+If NO results: call plan_itinerary(departure="${destination}", arrival="${origin}", start_date="${return_date}") to find connections.` : "N/A - one-way trip."}
+
+## Step 3: Present the best options
+${return_date ? `To maximize time at ${destination}:
+- Pick the LATEST outbound that still departs ${earliest_departure ? `after ${earliest_departure}` : "on time"}
+- Actually no — pick the EARLIEST outbound to arrive sooner
+- Pick the LATEST return${latest_return ? ` that arrives before ${latest_return}` : ""}
+- Calculate total hours at ${destination}: return departure time - outbound arrival time` : "Pick the best train based on user preferences."}
+
+Present results in a clear table or list format.`,
+      },
+    }],
+  })
 );
 
 // ── Start ──

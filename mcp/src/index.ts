@@ -496,6 +496,46 @@ function formatDuration(startIso: string, endIso: string): string {
   return `${h}h${m.toString().padStart(2, "0")}`;
 }
 
+const NIGHT_START_HOUR = 22; // 22:00 — sleep starts
+const NIGHT_END_HOUR = 7;   // 07:00 — wake up
+
+/**
+ * Calculate hours between start and end that fall during DAYTIME (07:00-22:00).
+ * Night hours (22:00-07:00) are excluded.
+ */
+function getDaytimeHours(start: Date, end: Date): number {
+  if (end <= start) return 0;
+  const totalMs = end.getTime() - start.getTime();
+  const totalHours = totalMs / 3600000;
+
+  // For short durations (< 24h), calculate precisely
+  if (totalHours <= 24) {
+    let daytime = 0;
+    // Walk in 15-min increments for precision
+    const step = 15 * 60000; // 15 minutes
+    for (let t = start.getTime(); t < end.getTime(); t += step) {
+      const d = new Date(t);
+      const hour = d.getHours();
+      const isDay = hour >= NIGHT_END_HOUR && hour < NIGHT_START_HOUR;
+      if (isDay) {
+        const remaining = Math.min(step, end.getTime() - t);
+        daytime += remaining / 3600000;
+      }
+    }
+    return daytime;
+  }
+
+  // For multi-day: 15h daytime per full day, plus partial first/last day
+  const fullDays = Math.floor(totalHours / 24);
+  const daytimePerDay = NIGHT_START_HOUR - NIGHT_END_HOUR; // 15h
+  let daytime = fullDays * daytimePerDay;
+
+  // Add partial day remainder
+  const remainderStart = new Date(start.getTime() + fullDays * 86400000);
+  daytime += getDaytimeHours(remainderStart, end);
+  return daytime;
+}
+
 // ── MCP Server ──
 
 const server = new McpServer({
@@ -749,16 +789,21 @@ USE THIS TOOL when the user wants to:
 - Maximize time at a destination
 - Find the best round trip within time constraints
 - Plan a trip with flexible dates
+- Optimize for overnight/night travel (travel while sleeping = free time)
 
 Example: find_best_trip(origin="lyon", destination="montpellier", earliest_departure="2026-05-13T17:00", latest_return="2026-05-18T09:00")
-→ Automatically finds the best outbound+return combo that maximizes time in Montpellier.`,
+→ Automatically finds the best outbound+return combo that maximizes time in Montpellier.
+
+Example with overnight preference: find_best_trip(origin="lyon", destination="nantes", earliest_departure="2026-05-13T17:00", latest_return="2026-05-18T09:00", prefer_overnight=true)
+→ Prioritizes late evening trains where travel time overlaps with sleep hours (22:00-07:00). Travel during these hours counts as "free" since you'd be sleeping anyway.`,
   {
     origin: z.string().describe("Departure city (e.g., 'lyon', 'paris')"),
     destination: z.string().describe("Destination city (e.g., 'montpellier', 'marseille')"),
     earliest_departure: z.string().describe("Earliest possible departure datetime ISO format (e.g., '2026-05-13T17:00')"),
     latest_return: z.string().optional().describe("Latest acceptable return arrival datetime ISO format (e.g., '2026-05-18T09:00'). Omit for one-way."),
+    prefer_overnight: z.boolean().optional().describe("When true, prioritizes night travel (22:00-07:00). Travel during sleep hours counts as free. Default: false."),
   },
-  async ({ origin, destination, earliest_departure, latest_return }) => {
+  async ({ origin, destination, earliest_departure, latest_return, prefer_overnight }) => {
     try {
       const originStations = await resolveAllStations(origin);
       const destStations = await resolveAllStations(destination);
@@ -899,23 +944,40 @@ Example: find_best_trip(origin="lyon", destination="montpellier", earliest_depar
       // Sort return by latest departure (maximize time at destination)
       returnOptions.sort((a, b) => b.departureDT.getTime() - a.departureDT.getTime());
 
-      // Find the BEST combo: earliest outbound arrival + latest return departure = max time at destination
-      let bestCombo: { outbound: TripOption; return_: TripOption; hoursAtDest: number } | null = null;
+      // Find the BEST combo
+      // Normal mode: maximize total time at destination
+      // Overnight mode: maximize DAYTIME hours at destination, treating travel during night as free
+      let bestCombo: { outbound: TripOption; return_: TripOption; hoursAtDest: number; score: number } | null = null;
 
-      for (const out of outboundOptions.slice(0, 10)) {
-        for (const ret of returnOptions.slice(0, 10)) {
+      for (const out of outboundOptions.slice(0, 15)) {
+        for (const ret of returnOptions.slice(0, 15)) {
           if (ret.departureDT <= out.arrivalDT) continue; // Return before arrival
           const hoursAtDest = (ret.departureDT.getTime() - out.arrivalDT.getTime()) / 3600000;
-          if (!bestCombo || hoursAtDest > bestCombo.hoursAtDest) {
-            bestCombo = { outbound: out, return_: ret, hoursAtDest };
+
+          let score: number;
+          if (prefer_overnight) {
+            // Score = daytime hours at destination - daytime hours wasted traveling
+            const daytimeAtDest = getDaytimeHours(out.arrivalDT, ret.departureDT);
+            const daytimeTravelOut = getDaytimeHours(out.departureDT, out.arrivalDT);
+            const daytimeTravelRet = getDaytimeHours(ret.departureDT, ret.arrivalDT);
+            score = daytimeAtDest - daytimeTravelOut - daytimeTravelRet;
+          } else {
+            score = hoursAtDest;
+          }
+
+          if (!bestCombo || score > bestCombo.score) {
+            bestCombo = { outbound: out, return_: ret, hoursAtDest, score };
           }
         }
       }
 
       // Build response
-      let text = `# 🚄 Best trip: ${origin} → ${destination}\n`;
+      const modeLabel = prefer_overnight ? "🌙 OVERNIGHT MODE" : "";
+      let text = `# 🚄 Best trip: ${origin} → ${destination} ${modeLabel}\n`;
       text += `Searched: ${originStations.join(", ")} ↔ ${destStations.join(", ")}\n`;
-      text += `Constraint: depart after ${earliest_departure}, return by ${latest_return}\n\n`;
+      text += `Constraint: depart after ${earliest_departure}, return by ${latest_return}\n`;
+      if (prefer_overnight) text += `Night hours (22:00-07:00): travel during these hours counts as FREE\n`;
+      text += "\n";
 
       if (bestCombo) {
         const out = bestCombo.outbound;
@@ -925,12 +987,37 @@ Example: find_best_trip(origin="lyon", destination="montpellier", earliest_depar
         const h = Math.floor(bestCombo.hoursAtDest);
         const m = Math.round((bestCombo.hoursAtDest - h) * 60);
 
-        text += `## ⭐ RECOMMENDED (maximizes time at ${destination})\n\n`;
+        const headerText = prefer_overnight
+          ? `## ⭐ RECOMMENDED (best overnight optimization)`
+          : `## ⭐ RECOMMENDED (maximizes time at ${destination})`;
+        text += `${headerText}\n\n`;
         text += `### Outbound: ${out.origin} → ${out.destination}\n`;
-        text += `- ${out.date} | Depart ${out.train.heure_depart} → Arrive ${out.train.heure_arrivee} | Train ${out.train.train_no} (${outDur})\n\n`;
+        text += `- ${out.date} | Depart ${out.train.heure_depart} → Arrive ${out.train.heure_arrivee} | Train ${out.train.train_no} (${outDur})\n`;
+
+        if (prefer_overnight) {
+          const outDayCost = getDaytimeHours(out.departureDT, out.arrivalDT);
+          const outNightTravel = (out.arrivalDT.getTime() - out.departureDT.getTime()) / 3600000 - outDayCost;
+          text += `  → Daytime cost: ${outDayCost.toFixed(1)}h | Night travel (free): ${outNightTravel.toFixed(1)}h\n`;
+        }
+        text += "\n";
+
         text += `### Return: ${ret.origin} → ${ret.destination}\n`;
-        text += `- ${ret.date} | Depart ${ret.train.heure_depart} → Arrive ${ret.train.heure_arrivee} | Train ${ret.train.train_no} (${retDur})\n\n`;
+        text += `- ${ret.date} | Depart ${ret.train.heure_depart} → Arrive ${ret.train.heure_arrivee} | Train ${ret.train.train_no} (${retDur})\n`;
+
+        if (prefer_overnight) {
+          const retDayCost = getDaytimeHours(ret.departureDT, ret.arrivalDT);
+          const retNightTravel = (ret.arrivalDT.getTime() - ret.departureDT.getTime()) / 3600000 - retDayCost;
+          text += `  → Daytime cost: ${retDayCost.toFixed(1)}h | Night travel (free): ${retNightTravel.toFixed(1)}h\n`;
+        }
+        text += "\n";
+
         text += `### ⏱️ Time at ${destination}: ~${h}h${m > 0 ? m.toString().padStart(2, "0") : ""}\n`;
+        if (prefer_overnight) {
+          const daytimeAtDest = getDaytimeHours(out.arrivalDT, ret.departureDT);
+          const dH = Math.floor(daytimeAtDest);
+          const dM = Math.round((daytimeAtDest - dH) * 60);
+          text += `Daytime at ${destination}: ~${dH}h${dM > 0 ? dM.toString().padStart(2, "0") : ""} (usable hours between 07:00-22:00)\n`;
+        }
         text += `(From ${out.train.heure_arrivee} on ${out.date} to ${ret.train.heure_depart} on ${ret.date})\n\n`;
       }
 

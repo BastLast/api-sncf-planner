@@ -40,10 +40,10 @@ async function fetchTrains(options: {
     const params = new URLSearchParams();
     params.set("limit", String(limit));
     if (page > 0) params.set("offset", String(page * limit));
-    if (date) params.append("refine", `date:"${toRefineDate(date)}"`);
-    params.append("refine", 'od_happy_card:"OUI"');
-    if (origin) params.append("refine", `origine:"${origin.trim()}"`);
-    if (destination) params.append("refine", `destination:"${destination.trim()}"`);
+    if (date) params.append("refine", `date:${toRefineDate(date)}`);
+    params.append("refine", "od_happy_card:OUI");
+    if (origin) params.append("refine", `origine:${origin.trim()}`);
+    if (destination) params.append("refine", `destination:${destination.trim()}`);
 
     const url = `${ODS_BASE}/${DATASET}/records?${params.toString()}`;
     const res = await fetch(url);
@@ -84,21 +84,36 @@ async function fetchTrains(options: {
 }
 
 async function fetchStations(date?: string): Promise<string[]> {
-  const params = new URLSearchParams();
-  params.set("limit", "0");
-  params.append("facet", "origine");
-  if (date) params.append("refine", `date:"${toRefineDate(date)}"`);
-  params.append("refine", 'od_happy_card:"OUI"');
+  const stations: string[] = [];
+  const PAGE_SIZE = 100;
+  let offset = 0;
 
-  const url = `${ODS_BASE}/${DATASET}/records?${params.toString()}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`SNCF API error: ${res.status} ${res.statusText}`);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  while (true) {
+    const params = new URLSearchParams();
+    params.set("select", "origine");
+    params.set("group_by", "origine");
+    params.set("limit", String(PAGE_SIZE));
+    if (offset > 0) params.set("offset", String(offset));
+    if (date) params.append("refine", `date:${toRefineDate(date)}`);
+    params.append("refine", "od_happy_card:OUI");
 
-  const data = await res.json();
-  const facets = data?.facets?.find((f: { name: string }) => f.name === "origine");
-  const values: string[] = facets?.facets?.map((f: { name: string }) => f.name).filter(Boolean) || [];
-  values.sort((a: string, b: string) => a.localeCompare(b));
-  return values;
+    const url = `${ODS_BASE}/${DATASET}/records?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`SNCF API error: ${res.status} ${res.statusText}`);
+
+    const data = await res.json();
+    const results: { origine: string }[] = data.results || [];
+    for (const r of results) {
+      if (r.origine) stations.push(r.origine);
+    }
+
+    if (results.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  stations.sort((a, b) => a.localeCompare(b));
+  return stations;
 }
 
 // ── Auto planner ──
